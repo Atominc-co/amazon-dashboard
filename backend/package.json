@@ -1,0 +1,29 @@
+{
+  "name": "amazon-executive-dashboard-backend",
+  "version": "1.0.0",
+  "description": "Backend API for the Amazon Executive Dashboard",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "nodemon --watch src --ext ts --exec ts-node src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "test": "npm run build && node test/datadoe-cache.test.js && node test/datadoe-raw-archive.test.js && node test/pnl-components.test.js && node test/reconciliation-datadoe-ui.test.js && node test/orders.test.js && node test/live-products.test.js && node test/inventory-health.test.js",
+    "validate:live-products": "npm run build && node scripts/validate-live-products.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.9",
+    "nodemon": "^3.1.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.3"
+  }
+}

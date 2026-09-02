@@ -1,0 +1,2655 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+  // Production deployment config (isolated on purpose, edited here only — never in support.js).
+  // Leave commented out for local development: support.js already falls back to
+  // http://localhost:4000 automatically when window.API_BASE is unset.
+  // To deploy, uncomment and replace the placeholder with the real backend origin:
+  // window.API_BASE = "https://PRODUCTION_API_BASE_URL";
+</script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="./image-slot.js"></script>
+<style>
+*{box-sizing:border-box}
+html{scroll-padding-top:150px;scroll-behavior:smooth}
+body{margin:0;background:#F5F6F8}
+a{color:#3D4AC7;text-decoration:none}
+a:hover{color:#2A35A8}
+::selection{background:#DDE1FB}
+@keyframes livePulse{0%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.82)}100%{opacity:1;transform:scale(1)}}
+/* Honour reduced-motion: disable the chevron rotate transition, smooth-scroll, and the live pulse. */
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{transition-duration:0.001ms !important;animation-duration:0.001ms !important;animation-iteration-count:1 !important}
+}
+
+/* ==== Responsive layer ====================================================
+   Added to make the fixed-desktop dashboard usable on laptop/tablet/mobile.
+   Selectors match the framework's RENDERED inline-style form (e.g. it emits
+   "grid-template-columns: 1fr 1fr 1fr" with spaces, and normalises ".7fr"
+   to "0.7fr"). All width-conditional rules live inside max-width media
+   queries, so the verified desktop layout (>1024px) is unchanged except for
+   the root shrink fix below.                                                */
+
+/* Root fix (all widths): let the 3-up and chart|table section grids shrink
+   instead of forcing the whole page ~1817px wide (a horizontal scrollbar was
+   present at every laptop width <~1880px). minmax(0,1fr) renders identically
+   to 1fr whenever content fits, so wide-desktop appearance is preserved. */
+[style*="grid-template-columns: 1fr 1fr 1fr"]{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)!important}
+[style*="grid-template-columns: 1.62fr 1fr"]{grid-template-columns:1.62fr minmax(0,1fr)!important}
+
+/* Wide financial tables get horizontal scroll on narrow screens instead of
+   overflowing the page or collapsing into unreadable columns. */
+@media (max-width:1024px){
+  #ciScroll,#cbScroll{overflow-x:auto!important;-webkit-overflow-scrolling:touch}
+  #ciScroll > div,#cbScroll > div{min-width:700px}
+}
+
+/* Tablet (all collapse tracks use minmax(0,1fr) so a track can shrink below
+   its content's intrinsic width instead of forcing page overflow) */
+@media (max-width:1024px){
+  header > div{flex-wrap:wrap!important}
+  header [style*="margin-left: auto"]{flex-wrap:wrap!important;justify-content:flex-end}
+  [style*="max-width:1560px"]{padding-left:18px!important;padding-right:18px!important}
+  [style*="grid-template-columns: repeat(6, 1fr)"]{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  [style*="grid-template-columns: repeat(5, 1fr)"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  [style*="grid-template-columns: 1.62fr 1fr"]{grid-template-columns:minmax(0,1fr)!important}
+  [style*="grid-template-columns: 1fr 1fr 1fr"]{grid-template-columns:minmax(0,1fr)!important}
+}
+
+/* Mobile */
+@media (max-width:640px){
+  [style*="max-width:1560px"]{padding-left:14px!important;padding-right:14px!important}
+  #costs,#breakdown,#products,#ppc,#inventory,#listings{padding-left:14px!important;padding-right:14px!important}
+  [style*="grid-template-columns: repeat(6, 1fr)"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  [style*="grid-template-columns: repeat(5, 1fr)"]{grid-template-columns:minmax(0,1fr)!important}
+  [style*="grid-template-columns: repeat(4, 1fr)"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  [style*="grid-template-columns: 1fr 1fr"]{grid-template-columns:minmax(0,1fr)!important}
+}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#F5F6F8;color:#141821;font-family:'Instrument Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased">
+
+  <header style="position:sticky;top:0;z-index:40;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid #E3E6EC">
+    <div style="max-width:1560px;margin:0 auto;padding:14px 32px;display:flex;align-items:center;gap:18px">
+      <div style="display:flex;align-items:center;gap:11px">
+        <img src="assets/atom-logo-light.png" alt="atominc" style="height:21px;width:auto;display:block">
+        <div style="width:1px;height:22px;background:#E3E6EC"></div>
+        <div>
+          <div role="heading" aria-level="1" style="font-size:14.5px;font-weight:650;letter-spacing:-.01em;line-height:1.2">Executive Overview</div>
+          <div style="font-size:11px;color:#6B7280;line-height:1.3">MVP 1 · Amazon</div>
+        </div>
+      </div>
+
+      <div title="{{ sellerBadgeTitle }}" style="display:flex;align-items:center;gap:7px;background:{{ sellerBadgeBg }};border:1px solid {{ sellerBadgeBorder }};border-radius:8px;padding:6px 11px">
+        <span style="width:6px;height:6px;border-radius:50%;background:{{ sellerDotColor }};animation:livePulse 2s ease-in-out infinite"></span>
+        <span style="font-size:11.5px;font-weight:600;color:{{ sellerBadgeTextCol }}">{{ sellerStatusLabel }}</span>
+        <sc-if value="{{ sellersMultiple }}" hint-placeholder-val="{{ false }}">
+          <select value="{{ selectedSellerId }}" onChange="{{ onSellerChange }}" style="font-family:'Instrument Sans',sans-serif;font-size:11px;font-weight:600;color:#8A5A00;background:transparent;border:none;outline:none;cursor:pointer">
+            <sc-for list="{{ sellerOptions }}" as="so" hint-placeholder-count="3">
+              <option value="{{ so.id }}">{{ so.label }}</option>
+            </sc-for>
+          </select>
+        </sc-if>
+        <!-- Freshness/staleness stamp (cache terminology) intentionally not shown in the investor build. -->
+      </div>
+
+      <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+        <div style="position:relative">
+          <div style="display:flex;gap:2px;background:#F1F3F7;border:1px solid #E3E6EC;border-radius:9px;padding:2px">
+            <sc-for list="{{ ranges }}" as="r" hint-placeholder-count="2">
+              <button onClick="{{ r.go }}" style="border:none;cursor:pointer;padding:6px 13px;border-radius:7px;font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;background:{{ r.bg }};color:{{ r.col }};box-shadow:{{ r.sh }}">{{ r.label }}</button>
+            </sc-for>
+            <button onClick="{{ toggleCalendar }}" title="Pick a custom date range within the available history" style="display:flex;align-items:center;gap:6px;border:none;cursor:pointer;padding:6px 12px;border-radius:7px;font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;background:{{ calBg }};color:{{ calCol }};box-shadow:{{ calSh }}">
+              <svg viewBox="0 0 14 14" style="width:12px;height:12px"><rect x="1.5" y="2.5" width="11" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"></rect><path d="M1.5 5.5 H12.5 M4.5 1 V3.5 M9.5 1 V3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"></path></svg>
+              {{ customLabel }}
+            </button>
+          </div>
+          <sc-if value="{{ calendarOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;top:42px;right:0;z-index:40;width:290px;background:#fff;border:1px solid #E3E6EC;border-radius:12px;box-shadow:0 8px 28px rgba(16,24,40,.16);padding:16px">
+              <div style="font-size:12.5px;font-weight:650;color:#141821;margin-bottom:3px">Custom date range</div>
+              <div style="font-size:10.5px;color:#6B7280;font-family:'IBM Plex Mono',monospace;margin-bottom:12px">Available range: {{ availHistoryText }}</div>
+              <div style="display:flex;flex-direction:column;gap:9px">
+                <label style="font-size:11px;color:#5B6373;font-weight:600;display:flex;flex-direction:column;gap:4px">From
+                  <input type="date" value="{{ customFrom }}" min="{{ histMin }}" max="{{ histMax }}" onChange="{{ onCustomFrom }}" style="border:1px solid #E3E6EC;border-radius:8px;padding:7px 9px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#141821">
+                </label>
+                <label style="font-size:11px;color:#5B6373;font-weight:600;display:flex;flex-direction:column;gap:4px">To
+                  <input type="date" value="{{ customTo }}" min="{{ histMin }}" max="{{ histMax }}" onChange="{{ onCustomTo }}" style="border:1px solid #E3E6EC;border-radius:8px;padding:7px 9px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#141821">
+                </label>
+              </div>
+              <sc-if value="{{ hasCustomError }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top:10px;font-size:11px;line-height:1.4;color:#C0342A;background:#FDECEA;border:1px solid #F5C9C3;border-radius:8px;padding:7px 9px;max-height:60px;overflow:hidden">{{ customError }}</div>
+              </sc-if>
+              <div style="display:flex;gap:8px;margin-top:13px">
+                <button onClick="{{ applyCustom }}" style="flex:1;cursor:pointer;border:1px solid #C6CDFA;background:#EEF0FE;color:#2A35A8;border-radius:8px;padding:8px 12px;font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:650">Apply range</button>
+                <button onClick="{{ toggleCalendar }}" style="cursor:pointer;border:1px solid #E3E6EC;background:#fff;color:#5B6373;border-radius:8px;padding:8px 12px;font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600">Close</button>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+        <button onClick="{{ toggleBreak }}" style="display:flex;align-items:center;gap:9px;cursor:pointer;border:1px solid {{ bkBorder }};background:{{ bkBg }};color:{{ bkCol }};border-radius:9px;padding:7px 13px;font-family:'Instrument Sans',sans-serif;font-size:12.5px;font-weight:650">
+          <span style="width:26px;height:15px;border-radius:8px;background:{{ bkTrackBg }};position:relative;display:inline-block;transition:background .16s">
+            <span style="position:absolute;top:2px;left:{{ bkKnob }};width:11px;height:11px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .16s"></span>
+          </span>
+          Cost breakdown
+        </button>
+        <!-- Investor-facing build: operator-only "API map" and "Sync data" controls are intentionally
+             not rendered (they exposed API/sync/cache implementation terminology). The underlying
+             handlers remain defined and unchanged; only the buttons are removed from the UI. -->
+      </div>
+    </div>
+
+    <div style="max-width:1560px;margin:0 auto;padding:0 32px 10px 32px;display:flex;align-items:center;gap:6px">
+      <sc-for list="{{ jump }}" as="j" hint-placeholder-count="5">
+        <a href="{{ j.href }}" style="font-size:11.5px;font-weight:600;color:#5B6373;padding:5px 11px;border-radius:7px;background:#F1F3F7" style-hover="background:#E7EAF2;color:#141821">{{ j.label }}</a>
+      </sc-for>
+      <button onClick="{{ toggleAll }}" style="margin-left:auto;cursor:pointer;border:1px solid #E3E6EC;background:#fff;color:#5B6373;border-radius:7px;padding:5px 11px;font-family:'Instrument Sans',sans-serif;font-size:11.5px;font-weight:600" style-hover="background:#F1F3F7;color:#141821">{{ allLabel }}</button>
+      <span style="font-size:11px;color:#6B7280;font-family:'IBM Plex Mono',monospace">{{ periodLabel }} · GBP · settlement basis</span>
+    </div>
+  </header>
+
+  <main style="max-width:1560px;margin:0 auto;padding:24px 32px 64px 32px;display:flex;flex-direction:column;gap:22px">
+
+    <!-- Investor-facing build: technical cache-coverage / synchronization banners intentionally not
+         rendered. Genuinely unavailable data still shows each section's own professional "Not available"
+         / "Unavailable" state (never a fabricated £0), driven by the unchanged per-section logic. -->
+
+    <section id="sales" style="display:flex;flex-direction:column;gap:13px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span role="heading" aria-level="2" style="font-size:12.5px;font-weight:650;letter-spacing:-.005em">Headline metrics</span>
+        <span style="font-size:11px;color:#8A919F">{{ periodLabel }} · vs prior period</span>
+        <button onClick="{{ secKpis.toggle }}" title="{{ secKpis.title }}" style="margin-left:auto;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;width:27px;height:27px;padding:0;border-radius:8px;border:1px solid #E3E6EC;background:#fff;color:#5B6373" style-hover="background:#F1F3F7;color:#141821;border-color:#C9CFDA"><svg viewBox="0 0 12 12" style="width:12px;height:12px;transform:rotate({{ secKpis.rot }});transition:transform .2s"><path d="M2.6 4.4 L6 7.9 L9.4 4.4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+      </div>
+      <sc-if value="{{ secKpis.on }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:14px">
+      <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="6">
+        <div style="background:#fff;border:1px solid #E3E6EC;border-radius:14px;padding:16px 16px 13px 16px;box-shadow:0 1px 2px rgba(16,24,40,.04)">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#6B7280;font-weight:650">{{ k.label }}</span>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:25px;font-weight:600;letter-spacing:-.025em;margin:9px 0 7px 0">{{ k.value }}</div>
+          <div style="display:flex;align-items:center;gap:7px">
+            <span style="font-size:11px;font-weight:650;font-family:'IBM Plex Mono',monospace;padding:2px 6px;border-radius:5px;background:{{ k.dBg }};color:{{ k.dCol }}">{{ k.delta }}</span>
+            <span title="{{ k.sub }}" style="font-size:11px;color:#8A919F;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ k.sub }}</span>
+          </div>
+          <sc-if value="{{ apiOn }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:11px;padding-top:9px;border-top:1px dashed #E3E6EC;font-family:'IBM Plex Mono',monospace;font-size:9.5px;line-height:1.45;color:#8A919F">{{ k.api }}</div>
+          </sc-if>
+        </div>
+      </sc-for>
+      </div>
+      </sc-if>
+    </section>
+
+    <section style="display:grid;grid-template-columns:1.62fr 1fr;gap:18px">
+      <div style="background:#fff;border:1px solid #E3E6EC;border-radius:16px;padding:20px 22px 18px 22px;box-shadow:0 1px 2px rgba(16,24,40,.04)">
+        <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:16px">
+          <div>
+            <div role="heading" aria-level="2" style="font-size:14.5px;font-weight:650;letter-spacing:-.01em">Sales, revenue &amp; ad spend</div>
+            <div style="font-size:11.5px;color:#6B7280;margin-top:3px">Ordered product sales vs. net revenue after Amazon deductions, with PPC overlay</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:14px;padding-top:2px">
+            <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:#5B6373;font-weight:600"><span style="width:9px;height:2px;background:#4A57E8;border-radius:2px"></span>Net revenue</span>
+            <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:#5B6373;font-weight:600"><span style="width:9px;height:2px;background:#9AA3B8;border-radius:2px"></span>Sales</span>
+            <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:#5B6373;font-weight:600"><span style="width:9px;height:2px;background:#E8A33D;border-radius:2px"></span>Ad spend</span>
+          </div>
+          <button onClick="{{ secTrend.toggle }}" title="{{ secTrend.title }}" style="flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;width:27px;height:27px;padding:0;border-radius:8px;border:1px solid #E3E6EC;background:#fff;color:#5B6373" style-hover="background:#F1F3F7;color:#141821;border-color:#C9CFDA"><svg viewBox="0 0 12 12" style="width:12px;height:12px;transform:rotate({{ secTrend.rot }});transition:transform .2s"><path d="M2.6 4.4 L6 7.9 L9.4 4.4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        </div>
+        <sc-if value="{{ secTrend.on }}" hint-placeholder-val="{{ true }}">
+        <div style="position:relative;height:246px">
+          <svg viewBox="0 0 760 246" preserveAspectRatio="none" style="width:100%;height:246px;display:block;overflow:visible">
+            <defs>
+              <linearGradient id="mvpRev" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#4A57E8" stop-opacity=".16"></stop>
+                <stop offset="100%" stop-color="#4A57E8" stop-opacity="0"></stop>
+              </linearGradient>
+            </defs>
+            <line x1="0" y1="8" x2="760" y2="8" stroke="#EDEFF4" stroke-width="1"></line>
+            <line x1="0" y1="68" x2="760" y2="68" stroke="#EDEFF4" stroke-width="1"></line>
+            <line x1="0" y1="128" x2="760" y2="128" stroke="#EDEFF4" stroke-width="1"></line>
+            <line x1="0" y1="188" x2="760" y2="188" stroke="#EDEFF4" stroke-width="1"></line>
+            <line x1="0" y1="228" x2="760" y2="228" stroke="#DFE3EA" stroke-width="1"></line>
+            <path d="{{ trendAreaPath }}" fill="url(#mvpRev)"></path>
+            <path d="{{ trendGrossPath }}" stroke="#9AA3B8" stroke-width="1.6" fill="none" stroke-dasharray="4 4" stroke-linecap="round"></path>
+            <path d="{{ trendRevPath }}" stroke="#4A57E8" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+            <path d="{{ trendAdPath }}" stroke="#E8A33D" stroke-width="2" fill="none" stroke-linecap="round"></path>
+          </svg>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#98A0AE;font-family:'IBM Plex Mono',monospace;margin-top:10px">
+          <span>{{ x0 }}</span><span>{{ x1 }}</span><span>{{ x2 }}</span><span>{{ x3 }}</span><span>Today</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px;padding-top:16px;border-top:1px solid #EDEFF4">
+          <sc-for list="{{ trendStats }}" as="t" hint-placeholder-count="4">
+            <div>
+              <div style="font-size:10.5px;color:#6B7280;font-weight:600">{{ t.label }}</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;margin-top:4px">{{ t.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ apiOn }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:14px;background:#F7F8FB;border:1px dashed #DDE1EA;border-radius:10px;padding:10px 12px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;line-height:1.6;color:#5B6373">GET /reports · GET_SALES_AND_TRAFFIC_REPORT (daily, by ASIN) → gross sales, units, sessions<br>GET /finances/v0/financialEvents → net revenue basis · Ads API v3 /reporting/reports (spend, daily)</div>
+        </sc-if>
+        </sc-if>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E3E6EC;border-radius:16px;padding:20px 22px;box-shadow:0 1px 2px rgba(16,24,40,.04);display:flex;flex-direction:column">
+        <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px">
+          <div>
+            <div role="heading" aria-level="2" style="font-size:14.5px;font-weight:650;letter-spacing:-.01em">Where the money went</div>
+            <div style="font-size:11.5px;color:#6B7280;margin-top:3px">Profit &amp; Loss components as % of Sales — one accounting basis, reconciles to Net profit</div>
+          </div>
+          <button onClick="{{ secMoney.toggle }}" title="{{ secMoney.title }}" style="margin-left:auto;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;width:27px;height:27px;padding:0;border-radius:8px;border:1px solid #E3E6EC;background:#fff;color:#5B6373" style-hover="background:#F1F3F7;color:#141821;border-color:#C9CFDA"><svg viewBox="0 0 12 12" style="width:12px;height:12px;transform:rotate({{ secMoney.rot }});transition:transform .2s"><path d="M2.6 4.4 L6 7.9 L9.4 4.4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        </div>
+        <sc-if value="{{ secMoney.on }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;flex:1">
+        <div style="display:flex;flex-direction:column;gap:13px;flex:1">
+          <sc-for list="{{ costBars }}" as="c" hint-placeholder-count="7">
+            <div>
+              <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:5px">
+                <span style="font-size:12px;font-weight:600;color:#2B313D">{{ c.label }}</span>
+                <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">{{ c.amt }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A919F;width:38px;text-align:right">{{ c.pct }}</span>
+              </div>
+              <div style="height:7px;border-radius:4px;background:#F1F3F7;overflow:hidden">
+                <div style="height:100%;width:{{ c.w }};background:{{ c.col }};border-radius:4px"></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top:18px;padding-top:15px;border-top:1px solid #EDEFF4;display:flex;align-items:center;gap:10px">
+          <div>
+            <div style="font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#6B7280;font-weight:650">Net profit</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:{{ netProfitCol }};margin-top:4px">{{ netProfit }}</div>
+          </div>
+          <div style="margin-left:auto;text-align:right">
+            <div style="font-size:10.5px;color:#6B7280;font-weight:600">Net margin</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;margin-top:4px">{{ netMargin }}</div>
+          </div>
+        </div>
+        </div>
+        </sc-if>
+      </div>
+    </section>
+
+
+    <sc-if value="{{ bkOn }}" hint-placeholder-val="{{ true }}">
+      <section id="breakdown" style="background:#fff;border:1px solid #D9DEEA;border-radius:16px;padding:22px 24px;box-shadow:0 1px 2px rgba(16,24,40,.04)">
+        <div style="display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:16px">
+          <div>
+            <div style="display:flex;align-items:center;gap:9px">
+              <span role="heading" aria-level="2" style="font-size:15px;font-weight:650;letter-spacing:-.01em">Breakdown mode</span>
+              <span style="font-size:10.5px;font-weight:650;color:#3D4AC7;background:#EEF0FE;border:1px solid #D8DDFB;border-radius:6px;padding:2px 7px">sales → net profit</span>
+            </div>
+            <div style="font-size:11.5px;color:#6B7280;margin-top:4px">Full post-sale cost cascade for the period. Amazon lines reconcile to the settlement report; COGS and freight use your manual cost inputs.</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:2px;background:#F1F3F7;border:1px solid #E3E6EC;border-radius:9px;padding:2px">
+            <sc-for list="{{ bkViews }}" as="v" hint-placeholder-count="2">
+              <button onClick="{{ v.go }}" style="border:none;cursor:pointer;padding:6px 13px;border-radius:7px;font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;background:{{ v.bg }};color:{{ v.col }};box-shadow:{{ v.sh }}">{{ v.label }}</button>
+            </sc-for>
+          </div>
+          <button onClick="{{ secBk.toggle }}" title="{{ secBk.title }}" style="flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;width:27px;height:27px;padding:0;border-radius:8px;border:1px solid #E3E6EC;background:#fff;color:#5B6373" style-hover="background:#F1F3F7;color:#141821;border-color:#C9CFDA"><svg viewBox="0 0 12 12" style="width:12px;height:12px;transform:rotate({{ secBk.rot }});transition:transform .2s"><path d="M2.6 4.4 L6 7.9 L9.4 4.4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        </div>
+
+        <sc-if value="{{ secBk.on }}" hint-placeholder-val="{{ true }}">
+        <sc-if value="{{ waterfallReady }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:0;padding:0 2px 4px 2px">
+          <sc-for list="{{ waterfall }}" as="w" hint-placeholder-count="7">
+            <sc-if value="{{ w.arrow }}" hint-placeholder-val="{{ true }}">
+              <div aria-hidden="true" style="flex:0 0 auto;align-self:center;width:14px;margin:0 5px;text-align:center;color:#C7CCD6;font-size:12px;font-weight:500;line-height:1">›</div>
+            </sc-if>
+            <div style="flex:{{ w.grow }} 1 {{ w.basis }};min-width:{{ w.basis }};max-width:190px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 8px;border-radius:10px;background:{{ w.chipBg }};border:{{ w.chipBorder }}">
+              <div style="min-height:23px;display:flex;align-items:flex-start;justify-content:center;font-size:{{ w.labSize }};line-height:1.15;letter-spacing:.03em;text-transform:uppercase;font-weight:650;color:{{ w.labCol }};text-align:center;overflow-wrap:break-word;max-width:100%">{{ w.label }}</div>
+              <div style="height:22px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:{{ w.amtSize }};font-weight:{{ w.amtWeight }};color:{{ w.amtCol }};white-space:nowrap">{{ w.amt }}</div>
+              <div style="height:13px;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:650;color:#5B8F72;line-height:1;white-space:nowrap;visibility:{{ w.subVis }}">{{ w.subText }}</div>
+              <div style="width:100%;height:5px;border-radius:3px;background:{{ w.barTrack }};overflow:hidden">
+                <div style="height:100%;width:{{ w.barPct }};background:{{ w.barCol }};border-radius:3px"></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        </sc-if>
+        <sc-if value="{{ waterfallUnavailable }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:11px;background:#F7F8FB;border:1px dashed #DDE1EA;border-radius:12px;padding:16px 18px">
+          <svg viewBox="0 0 20 20" style="width:20px;height:20px;flex-shrink:0;color:#8A919F"><path d="M10 2 L18 17 H2 Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path><path d="M10 8 V12 M10 14.3 V14.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>
+          <div style="font-size:12px;line-height:1.5;color:#5B6373">The sales→net cost cascade needs <b>Sales</b> (Profit &amp; Loss) as its starting point, which isn't available for this period. Every cost line is still shown, with its exact amount and source, in the itemised table below.</div>
+        </div>
+        </sc-if>
+
+        <div id="cbScroll" style="margin-top:22px;border:1px solid #E9ECF2;border-radius:12px;overflow:hidden">
+          <div style="display:grid;grid-template-columns:1.7fr .9fr .6fr .7fr .8fr 1.5fr;gap:12px;padding:10px 14px;background:#F7F8FB;border-bottom:1px solid #E9ECF2;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:#6B7280;font-weight:650">
+            <div>Cost line</div>
+            <div style="text-align:right">Amount</div>
+            <div style="text-align:right">% sales</div>
+            <div style="text-align:right">Per unit</div>
+            <div style="text-align:right">Δ vs prior</div>
+            <div>Source</div>
+          </div>
+          <sc-for list="{{ costRows }}" as="c" hint-placeholder-count="12">
+            <div style="display:grid;grid-template-columns:1.7fr .9fr .6fr .7fr .8fr 1.5fr;gap:12px;padding:11px 14px;border-bottom:1px solid #F1F3F7;align-items:center;background:{{ c.rowBg }}">
+              <div style="display:flex;align-items:center;gap:9px;min-width:0">
+                <span style="width:7px;height:7px;border-radius:2px;background:{{ c.dot }};flex-shrink:0"></span>
+                <span style="font-size:12.5px;font-weight:{{ c.weight }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.label }}</span>
+              </div>
+              <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:{{ c.weight }};color:{{ c.amtCol }}">{{ c.amt }}</div>
+              <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#6B7280">{{ c.pct }}</div>
+              <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#6B7280">{{ c.unit }}</div>
+              <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;color:{{ c.dCol }}">{{ c.delta }}</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#6B7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.src }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="margin-top:14px;display:flex;align-items:center;gap:10px;background:#FFF8EC;border:1px solid #F5DFB4;border-radius:10px;padding:11px 14px">
+          <span style="font-size:11.5px;font-weight:650;color:#8A5A00">Not from Amazon</span>
+          <span style="font-size:11.5px;color:#8A5A00">Cost of goods and freight come from <a href="#costs">your cost inputs</a> — {{ ciCoverage }} of units sold are covered. Everything else on this cascade reconciles to the Amazon settlement report.</span>
+        </div>
+        </sc-if>
+      </section>
+    </sc-if>
+
+    <section id="pnl-report" style="background:#fff;border:1px solid #E3E6EC;border-radius:16px;padding:20px 22px 22px 22px;box-shadow:0 1px 2px rgba(16,24,40,.04)">
+      <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:16px">
+        <div>
+          <div role="heading" aria-level="2" style="font-size:14.5px;font-weight:650;letter-spacing:-.01em">Profit &amp; Loss</div>
+          <div style="font-size:11.5px;color:#6B7280;margin-top:3px">{{ pnlNote }}</div>
+        </div>
+      </div>
+      <div style="border:1px solid #E9ECF2;border-radius:12px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:1.6fr 1fr 2fr;gap:12px;padding:10px 14px;background:#F7F8FB;border-bottom:1px solid #E9ECF2;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:#6B7280;font-weight:650">
+          <div>P&amp;L line</div>
+          <div style="text-align:right">Amount</div>
+          <div>Source</div>
+        </div>
+        <sc-for list="{{ pnlRows }}" as="p" hint-placeholder-count="7">
+          <div style="display:grid;grid-template-columns:1.6fr 1fr 2fr;gap:12px;padding:11px 14px;border-bottom:1px solid #F1F3F7;align-items:center;background:{{ p.rowBg }}">
+            <div style="display:flex;align-items:center;gap:9px;min-width:0">
+              <span style="width:7px;height:7px;border-radius:2px;background:{{ p.dot }};flex-shrink:0"></span>
+              <span style="font-size:12.5px;font-weight:{{ p.weight }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.label }}</span>
+            </div>
+            <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:{{ p.weight }};color:{{ p.amtCol }}">{{ p.amt }}</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#6B7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.src }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section id="orders" style="background:#fff;border:1px solid #E3E6EC;border-radius:16px;padding:20px 22px;box-shadow:0 1px 2px rgba(16,24,40,.04)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div role="heading" aria-level="2" style="font-size:14px;font-weight:650;letter-spacing:-.01em">Orders</div>
+          <span style="font-size:10px;font-weight:650;color:#3D4AC7;background:#EEF0FE;border:1px solid #D8DDFB;border-radius:5px;padding:2px 7px">Amazon orders</span>
+          <button onClick="{{ secOrders.toggle }}" title="{{ secOrders.title }}" aria-label="{{ secOrders.aria }}" aria-expanded="{{ secOrders.expanded }}" style="margin-left:auto;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;width:27px;height:27px;padding:0;border-radius:8px;border:1px solid #E3E6EC;background:#fff;color:#5B6373;outline:none" style-hover="background:#F1F3F7;color:#141821;border-color:#C9CFDA" style-focus="border-color:#4A57E8;box-shadow:0 0 0 3px rgba(74,87,232,.30);color:#141821"><svg viewBox="0 0 12 12" style="width:12px;height:12px;transform:rotate({{ secOrders.rot }});transition:transform .2s" aria-hidden="true"><path d="M2.6 4.4 L6 7.9 L9.4 4.4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        </div>
+        <div style="font-size:10.5px;color:#8A919F;margin:-6px 0 14px;line-height:1.45">Every order placed in the selected period, newest first. Genuine cancellations are shown, never dropped.</div>
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+          <span style="font-size:10px;font-weight:650;color:#5B6373;background:#F1F3F7;border:1px solid #E3E6EC;border-radius:5px;padding:2px 7px">{{ ordersCountLabel }}</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5B6373;font-weight:600">{{ ordersTotalsLabel }}</span>
+        </div>
+        <sc-if value="{{ secOrders.on }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top:14px">
+          <sc-if value="{{ hasOrders }}" hint-placeholder-val="{{ true }}">
+          <div style="border:1px solid #EDEFF4;border-radius:10px;overflow:hidden">
+            <div style="overflow-x:auto">
+              <div style="min-width:820px">
+                <div style="display:grid;grid-template-columns:.75fr 1.5fr minmax(0,2.6fr) 1.1fr .5fr .5fr .8fr .85fr;gap:10px;padding:8px 12px;background:#F7F8FB;border-bottom:1px solid #EDEFF4;font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:#8A919F;font-weight:650">
+                  <div>Date</div>
+                  <div>Order ID</div>
+                  <div>Product</div>
+                  <div>ASIN</div>
+                  <div style="text-align:right">Items</div>
+                  <div style="text-align:right">Units</div>
+                  <div style="text-align:right">Value</div>
+                  <div style="text-align:right">Status</div>
+                </div>
+                <div style="max-height:360px;overflow-y:auto">
+                  <sc-for list="{{ ordersList }}" as="o" hint-placeholder-count="8">
+                    <div style="display:grid;grid-template-columns:.75fr 1.5fr minmax(0,2.6fr) 1.1fr .5fr .5fr .8fr .85fr;gap:10px;align-items:center;padding:7px 12px;border-bottom:1px solid #F3F4F8" style-hover="background:#F8F9FC">
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5B6373;white-space:nowrap">{{ o.date }}</div>
+                      <div title="{{ o.orderId }}" style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A919F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.orderId }}</div>
+                      <div title="{{ o.product }}" style="font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.product }}</div>
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#8A919F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.asin }}</div>
+                      <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A919F">{{ o.items }}</div>
+                      <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5B6373">{{ o.units }}</div>
+                      <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;color:#141821">{{ o.value }}</div>
+                      <div style="text-align:right;font-size:10.5px;font-weight:650;color:{{ o.statusCol }};white-space:nowrap">{{ o.status }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+          </sc-if>
+          <sc-if value="{{ noOrders }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:11px;color:#8A919F;font-weight:600;padding:6px 2px">{{ ordersEmptyText }}</div>
+          </sc-if>
+        </div>
+        </sc-if>
+      </section>
+
+    <section id="listings" style="background:#fff;border:1px solid #E3E6EC;border-radius:16px;padding:20px 22px 22px 22px;box-shadow:0 1px 2px rgba(16,24,40,.04)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div role="heading" aria-level="2" style="font-size:14px;font-weight:650;letter-spacing:-.01em">Product listings</div>
+          <span style="font-size:10px;font-weight:650;color:#5B6373;background:#F1F3F7;border:1px solid #E3E6EC;border-radius:5px;padding:2px 7px">{{ listingsStatusBadge }}</span>
+          <button onClick="{{ secLst.toggle }}" title="{{ secLst.title }}" aria-label="{{ secLst.aria }}" aria-expanded="{{ secLst.expanded }}" style="margin-left:auto;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;width:27px;height:27px;padding:0;border-radius:8px;border:1px solid #E3E6EC;background:#fff;color:#5B6373;outline:none" style-hover="background:#F1F3F7;color:#141821;border-color:#C9CFDA" style-focus="border-color:#4A57E8;box-shadow:0 0 0 3px rgba(74,87,232,.30);color:#141821"><svg viewBox="0 0 12 12" style="width:12px;height:12px;transform:rotate({{ secLst.rot }});transition:transform .2s" aria-hidden="true"><path d="M2.6 4.4 L6 7.9 L9.4 4.4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        </div>
+        <div style="font-size:10.5px;color:#8A919F;margin:-6px 0 14px;line-height:1.45">Full seller catalogue by listing status, with the active Live products list below.</div>
+        <sc-if value="{{ productListingsCombinedSummary }}" hint-placeholder-val="{{ false }}">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5B6373;font-weight:600">{{ productListingsCombinedSummary }}</div>
+        </sc-if>
+        <sc-if value="{{ listingsStatusMessage }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:12px;color:#C0342A;padding:10px 0 2px 0">{{ listingsStatusMessage }}</div>
+        </sc-if>
+        <!-- Persistent summary layer (matches the PPC/Inventory pattern: KPI tiles stay visible when
+             collapsed; only the deeper detail list/table collapses). Everything from here down to the
+             sc-if secLst.on gate below remains visible regardless of collapse state. -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px 16px;margin-top:16px">
+          <sc-for list="{{ listings }}" as="l" hint-placeholder-count="4">
+            <div>
+              <div style="font-size:10.5px;color:#6B7280;font-weight:600">{{ l.k }}</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:600;margin-top:3px;color:{{ l.col }}">{{ l.v }}</div>
+              <div title="{{ l.sub }}" style="font-size:10.5px;color:#8A919F;margin-top:1px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ l.sub }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ apiOn }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.5;color:#8A919F">GET /listings/2021-08-01/items/{sellerId}<br>GET_MERCHANT_LISTINGS_ALL_DATA · issues[]</div>
+        </sc-if>
+
+        <div style="margin-top:22px;padding-top:18px;border-top:1px solid #EDEFF4">
+          <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:12px">
+            <div style="min-width:0">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div role="heading" aria-level="3" style="font-size:13px;font-weight:650;letter-spacing:-.005em">Live products</div>
+                <sc-if value="{{ productsCountLabel }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size:10px;font-weight:650;color:#5B6373;background:#F1F3F7;border:1px solid #E3E6EC;border-radius:5px;padding:2px 7px">{{ productsCountLabel }}</span>
+                </sc-if>
+              </div>
+              <div style="font-size:11.5px;color:#6B7280;margin-top:3px">All active listings, highest-revenue first. Revenue, margin, ACOS and units are for the selected month; stock is the latest snapshot. Values are shown where authoritative, otherwise marked unavailable.</div>
+            </div>
+            <sc-if value="{{ apiOn }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-left:auto;flex-shrink:0;font-family:'IBM Plex Mono',monospace;font-size:10px;color:#6B7280;text-align:right;line-height:1.5">GET /catalog/2022-04-01/items → images, title, salesRanks[] (BSR)<br>GET /products/pricing/v0/competitivePrice → Buy Box</div>
+            </sc-if>
+          </div>
+          <sc-if value="{{ liveProductsSummaryLabel }}" hint-placeholder-val="{{ false }}">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5B6373;font-weight:600;margin-bottom:8px">{{ liveProductsSummaryLabel }}</div>
+          </sc-if>
+          <sc-if value="{{ productsStatusMessage }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:12px;color:{{ productsStatusColor }};padding:6px 0 16px 0">{{ productsStatusMessage }}</div>
+          </sc-if>
+        </div>
+
+        <!-- Collapsible detail layer: ONLY the full Live Products table/rows collapse. Everything
+             above (identity, badges, subtitles, summaries, tile grids) stays visible when collapsed. -->
+        <sc-if value="{{ secLst.on }}" hint-placeholder-val="{{ true }}">
+          <sc-if value="{{ hasProducts }}" hint-placeholder-val="{{ true }}">
+          <div style="border:1px solid #E9ECF2;border-radius:12px;overflow:hidden;margin-top:4px">
+            <div style="display:grid;grid-template-columns:minmax(0,2.3fr) .8fr .95fr .85fr .9fr 1fr .95fr 1.05fr;gap:10px;align-items:center;padding:9px 14px;background:#F7F8FB;border-bottom:1px solid #EDEFF4;font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:#6B7280;font-weight:650">
+              <div>Product</div>
+              <div style="text-align:right">Units</div>
+              <div style="text-align:right">Revenue</div>
+              <div style="text-align:right">Margin</div>
+              <div style="text-align:right">Ad spend</div>
+              <div style="text-align:right">ACOS</div>
+              <div style="text-align:right">Buy Box</div>
+              <div style="text-align:right">Stock</div>
+            </div>
+            <div style="max-height:468px;overflow-y:auto">
+              <sc-for list="{{ products }}" as="p" hint-placeholder-count="6">
+                <div style="display:grid;grid-template-columns:minmax(0,2.3fr) .8fr .95fr .85fr .9fr 1fr .95fr 1.05fr;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px solid #F3F4F8;background:{{ p.rowBg }}" style-hover="background:#F8F9FC">
+                  <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                    <div style="width:40px;height:40px;flex-shrink:0;border:1px solid #EDEFF4;border-radius:8px;overflow:hidden;background:#F7F8FB">
+                      <image-slot id="{{ p.slot }}" shape="rect" fit="contain" placeholder="{{ p.ph }}" src="{{ p.imageUrl }}"></image-slot>
+                    </div>
+                    <div style="min-width:0">
+                      <sc-if value="{{ p.hasName }}" hint-placeholder-val="{{ true }}">
+                        <div title="{{ p.name }}" style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</div>
+                      </sc-if>
+                      <div style="display:flex;align-items:center;gap:8px;margin-top:1px;min-width:0">
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8A919F;white-space:nowrap">{{ p.asin }}</span>
+                        <span title="{{ p.campText }}" style="display:inline-flex;align-items:center;gap:4px;font-size:9px;color:#8A919F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"><span style="width:5px;height:5px;border-radius:50%;background:{{ p.campDot }};flex-shrink:0"></span>{{ p.campText }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:{{ p.unitsCol }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.unitsV }}</div>
+                  <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;color:{{ p.revenueCol }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.revenueV }}</div>
+                  <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;color:{{ p.marginCol }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.marginV }}</div>
+                  <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#141821;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.adSpendV }}</div>
+                  <div title="{{ p.acosTitle }}" style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;color:{{ p.acosCol }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.acosV }}</div>
+                  <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:{{ p.bbCol }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.bbV }}</div>
+                  <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;min-width:0">
+                    <span style="width:6px;height:6px;border-radius:50%;background:{{ p.stockDot }};flex-shrink:0"></span>
+                    <span style="font-size:11px;color:{{ p.stockCol }};font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.stockV }}</span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          </sc-if>
+        </sc-if>
+      </section>
+
+    <div id="inventory" style="background:#fff;border:1px solid #E3E6EC;border-radius:16px;padding:20px 22px;box-shadow:0 1px 2px rgba(16,24,40,.04)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div role="heading" aria-level="2" style="font-size:14px;font-weight:650;letter-spacing:-.01em">Inventory</div>
+          <span style="font-size:10px;font-weight:650;color:#3D4AC7;background:#EEF0FE;border:1px solid #D8DDFB;border-radius:5px;padding:2px 7px">FBA</span>
+          <button onClick="{{ secInv.toggle }}" title="{{ secInv.title }}" aria-label="{{ secInv.aria }}" aria-expanded="{{ secInv.expanded }}" style="margin-left:auto;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;width:27px;height:27px;padding:0;border-radius:8px;border:1px solid #E3E6EC;background:#fff;color:#5B6373;outline:none" style-hover="background:#F1F3F7;color:#141821;border-color:#C9CFDA" style-focus="border-color:#4A57E8;box-shadow:0 0 0 3px rgba(74,87,232,.30);color:#141821"><svg viewBox="0 0 12 12" style="width:12px;height:12px;transform:rotate({{ secInv.rot }});transition:transform .2s" aria-hidden="true"><path d="M2.6 4.4 L6 7.9 L9.4 4.4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        </div>
+        <div style="font-size:10.5px;color:#8A919F;margin:-6px 0 14px;line-height:1.45">Current FBA snapshot — fulfillable stock and days of cover as of the latest sync.</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px 16px">
+          <sc-for list="{{ inv }}" as="i" hint-placeholder-count="4">
+            <div>
+              <div style="font-size:10.5px;color:#6B7280;font-weight:600">{{ i.k }}</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:600;margin-top:3px;color:{{ i.col }}">{{ i.v }}</div>
+              <div title="{{ i.sub }}" style="font-size:10.5px;color:#8A919F;margin-top:1px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ i.sub }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top:18px;padding-top:15px;border-top:1px solid #EDEFF4">
+          <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:9px">
+            <div style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:#6B7280;font-weight:650">Inventory Health</div>
+            <span style="font-size:9.5px;color:#8A919F">evidence-based, not Amazon-generated unless labelled</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px 14px">
+            <sc-for list="{{ ihKpis }}" as="k" hint-placeholder-count="4">
+              <div>
+                <div style="font-size:10px;color:#6B7280;font-weight:600">{{ k.k }}</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;margin-top:2px;color:{{ k.col }}">{{ k.v }}</div>
+                <div title="{{ k.sub }}" style="font-size:9.5px;color:#8A919F;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ k.sub }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <sc-if value="{{ secInv.on }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top:18px;padding-top:15px;border-top:1px solid #EDEFF4">
+          <div style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:#6B7280;font-weight:650;margin-bottom:9px">High priority</div>
+          <sc-if value="{{ hasIhHighPriority }}" hint-placeholder-val="{{ true }}">
+          <div style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ ihHighPriority }}" as="p" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:10px;border:1px solid #EDEFF4;border-radius:9px;padding:8px 10px">
+                <div style="width:36px;height:36px;flex-shrink:0;border:1px solid #EDEFF4;border-radius:7px;overflow:hidden;background:#F7F8FB">
+                  <image-slot id="{{ p.slot }}" shape="rect" fit="contain" placeholder="{{ p.ph }}" src="{{ p.imageUrl }}"></image-slot>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:baseline;gap:7px;min-width:0">
+                    <sc-if value="{{ p.hasName }}" hint-placeholder-val="{{ true }}">
+                      <span title="{{ p.name }}" style="font-size:11.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</span>
+                    </sc-if>
+                    <span style="font-size:9.5px;font-weight:650;color:{{ p.issueCol }};white-space:nowrap;flex-shrink:0">{{ p.issueLabel }}</span>
+                  </div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8A919F;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.asin }} · {{ p.stockV }} · {{ p.unitsV }} · {{ p.revenueV }}</div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8A919F;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.velocityV }} · {{ p.daysCoverV }} · {{ p.buyBoxV }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ ihHighPriorityMoreText }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:10.5px;color:#8A919F;font-weight:600;margin-top:10px">{{ ihHighPriorityMoreText }}</div>
+          </sc-if>
+          </sc-if>
+          <sc-if value="{{ noIhHighPriority }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:11px;color:#8A919F;font-weight:600">{{ ihHighPriorityEmptyText }}</div>
+          </sc-if>
+        </div>
+        <div style="margin-top:18px;padding-top:15px;border-top:1px solid #EDEFF4">
+          <div style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:#6B7280;font-weight:650;margin-bottom:9px">Inventory opportunities</div>
+          <sc-if value="{{ hasIhOpportunities }}" hint-placeholder-val="{{ true }}">
+          <div style="max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">
+            <sc-for list="{{ ihOpportunities }}" as="p" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:10px;border:1px solid #EDEFF4;border-radius:9px;padding:8px 10px">
+                <div style="width:36px;height:36px;flex-shrink:0;border:1px solid #EDEFF4;border-radius:7px;overflow:hidden;background:#F7F8FB">
+                  <image-slot id="{{ p.slot }}" shape="rect" fit="contain" placeholder="{{ p.ph }}" src="{{ p.imageUrl }}"></image-slot>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:baseline;gap:7px;min-width:0">
+                    <sc-if value="{{ p.hasName }}" hint-placeholder-val="{{ true }}">
+                      <span title="{{ p.name }}" style="font-size:11.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.name }}</span>
+                    </sc-if>
+                    <span style="font-size:9.5px;font-weight:650;color:{{ p.kindCol }};white-space:nowrap;flex-shrink:0">{{ p.kind }}</span>
+                  </div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8A919F;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.asin }} · {{ p.stockV }} · {{ p.qtyV }} {{ p.dateV }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <sc-if value="{{ ihOpportunitiesMoreText }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:10.5px;color:#8A919F;font-weight:600;margin-top:10px">{{ ihOpportunitiesMoreText }}</div>
+          </sc-if>
+          </sc-if>
+          <sc-if value="{{ noIhOpportunities }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:11px;color:#8A919F;font-weight:600">{{ ihOpportunitiesEmptyText }}</div>
+          </sc-if>
+          <sc-if value="{{ ihRemovalNote }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:10.5px;color:#8A919F;margin-top:8px">{{ ihRemovalNote }}</div>
+          </sc-if>
+        </div>
+        </sc-if>
+      </div>
+
+    <div id="ppc" style="background:#fff;border:1px solid #E3E6EC;border-radius:16px;padding:20px 22px;box-shadow:0 1px 2px rgba(16,24,40,.04)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div role="heading" aria-level="2" style="font-size:14px;font-weight:650;letter-spacing:-.01em">PPC</div>
+          <span style="font-size:10px;font-weight:650;color:#8A5A00;background:#FFF8EC;border:1px solid #F5DFB4;border-radius:5px;padding:2px 7px">Sponsored Products</span>
+          <button onClick="{{ secPpc.toggle }}" title="{{ secPpc.title }}" aria-label="{{ secPpc.aria }}" aria-expanded="{{ secPpc.expanded }}" style="margin-left:auto;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;width:27px;height:27px;padding:0;border-radius:8px;border:1px solid #E3E6EC;background:#fff;color:#5B6373;outline:none" style-hover="background:#F1F3F7;color:#141821;border-color:#C9CFDA" style-focus="border-color:#4A57E8;box-shadow:0 0 0 3px rgba(74,87,232,.30);color:#141821"><svg viewBox="0 0 12 12" style="width:12px;height:12px;transform:rotate({{ secPpc.rot }});transition:transform .2s" aria-hidden="true"><path d="M2.6 4.4 L6 7.9 L9.4 4.4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        </div>
+        <div style="font-size:10.5px;color:#8A919F;margin:-6px 0 14px;line-height:1.45">Ex-VAT media spend · 14-day attribution — Sponsored Products campaign basis. (The P&amp;L advertising line includes 20% VAT, a different basis.)</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px 16px">
+          <sc-for list="{{ ppc }}" as="a" hint-placeholder-count="6">
+            <div>
+              <div style="font-size:10.5px;color:#6B7280;font-weight:600">{{ a.k }}</div>
+              <div style="display:flex;align-items:baseline;gap:6px;margin-top:3px">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:600;color:{{ a.col }}">{{ a.v }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;color:{{ a.dCol }}">{{ a.d }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ secPpc.on }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top:18px;padding-top:15px;border-top:1px solid #EDEFF4">
+          <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:9px">
+            <div style="font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:#6B7280;font-weight:650">Campaigns · highest ACOS first</div>
+            <span style="font-size:10px;font-weight:650;color:#5B6373;background:#F1F3F7;border:1px solid #E3E6EC;border-radius:5px;padding:2px 7px">{{ campaignCountLabel }}</span>
+          </div>
+          <div style="border:1px solid #EDEFF4;border-radius:9px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:minmax(0,2fr) .8fr .8fr .55fr .55fr .65fr;gap:8px;padding:7px 10px;background:#F7F8FB;border-bottom:1px solid #EDEFF4;font-size:9px;letter-spacing:.04em;text-transform:uppercase;color:#8A919F;font-weight:650">
+              <div>Campaign</div>
+              <div style="text-align:right">Spend</div>
+              <div style="text-align:right">Sales</div>
+              <div style="text-align:right">Clicks</div>
+              <div style="text-align:right">Orders</div>
+              <div style="text-align:right">ACOS</div>
+            </div>
+            <div style="max-height:216px;overflow-y:auto">
+              <sc-for list="{{ campaigns }}" as="c" hint-placeholder-count="4">
+                <div style="display:grid;grid-template-columns:minmax(0,2fr) .8fr .8fr .55fr .55fr .65fr;gap:8px;align-items:center;padding:7px 10px;border-bottom:1px solid #F3F4F8" style-hover="background:#F8F9FC">
+                  <div title="{{ c.name }}" style="font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</div>
+                  <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5B6373">{{ c.spend }}</div>
+                  <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5B6373">{{ c.sales }}</div>
+                  <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A919F">{{ c.clicks }}</div>
+                  <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#8A919F">{{ c.orders }}</div>
+                  <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:650;color:{{ c.col }}">{{ c.acos }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <sc-if value="{{ apiOn }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.5;color:#8A919F">Ads API v3 · POST /reporting/reports<br>spCampaigns + spTargeting, daily</div>
+        </sc-if>
+        </sc-if>
+      </div>
+
+    <section id="costs" style="background:#fff;border:1px solid #E3E6EC;border-radius:16px;padding:20px 22px;box-shadow:0 1px 2px rgba(16,24,40,.04)">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px">
+        <div>
+          <div style="display:flex;align-items:center;gap:9px">
+            <span role="heading" aria-level="2" style="font-size:14.5px;font-weight:650;letter-spacing:-.01em">Cost inputs — COGS &amp; freight</span>
+            <span style="font-size:10.5px;font-weight:650;color:#8A5A00;background:#FFF8EC;border:1px solid #F5DFB4;border-radius:6px;padding:2px 7px">manual entry</span>
+          </div>
+          <div style="font-size:11.5px;color:#6B7280;margin-top:4px">Amazon never sends unit cost. Enter it here as your own COGS &amp; freight reference. The Sales → Net profit cascade, headline Net profit and Net margin all come from the Profit &amp; Loss report (its accounting basis) and are not affected by these manual inputs.</div>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:9px">
+          <span style="font-size:11px;font-weight:650;color:{{ dirtyCol }};background:{{ dirtyBg }};border:1px solid {{ dirtyBorder }};border-radius:7px;padding:5px 10px;white-space:nowrap">{{ dirtyLabel }}</span>
+          <button onClick="{{ secCogs.toggle }}" title="{{ secCogs.title }}" style="flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;width:27px;height:27px;padding:0;border-radius:8px;border:1px solid #E3E6EC;background:#fff;color:#5B6373" style-hover="background:#F1F3F7;color:#141821;border-color:#C9CFDA"><svg viewBox="0 0 12 12" style="width:12px;height:12px;transform:rotate({{ secCogs.rot }});transition:transform .2s"><path d="M2.6 4.4 L6 7.9 L9.4 4.4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        </div>
+      </div>
+      <sc-if value="{{ secCogs.on }}" hint-placeholder-val="{{ true }}">
+      <div id="ciScroll">
+        <div style="display:grid;grid-template-columns:2fr .7fr 1fr 1fr .8fr .95fr .95fr;gap:10px;padding:0 12px 9px 12px;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#6B7280;font-weight:650">
+          <div>SKU</div>
+          <div style="text-align:right">Units sold</div>
+          <div style="text-align:right">Unit cost £</div>
+          <div style="text-align:right">Freight &amp; duty £</div>
+          <div style="text-align:right">Landed</div>
+          <div style="text-align:right">Period COGS</div>
+          <div style="text-align:right">Period freight</div>
+        </div>
+        <div style="border:1px solid #E9ECF2;border-radius:12px;overflow:hidden">
+          <sc-for list="{{ costInputs }}" as="r" hint-placeholder-count="6">
+            <div style="display:grid;grid-template-columns:2fr .7fr 1fr 1fr .8fr .95fr .95fr;gap:10px;align-items:center;padding:9px 12px;border-bottom:1px solid #F1F3F7;background:{{ r.rowBg }}">
+              <div style="min-width:0">
+                <div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:#8A919F;margin-top:2px">{{ r.asin }}</div>
+              </div>
+              <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5B6373">{{ r.units }}</div>
+              <div>
+                <input type="number" step="0.01" min="0" value="{{ r.cogs }}" onChange="{{ r.setCogs }}" aria-label="{{ r.name }} unit cost, pounds" style="width:100%;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;color:#141821;background:#fff;border:1px solid #D5DAE4;border-radius:7px;padding:6px 8px;outline:none" style-focus="border-color:#4A57E8;box-shadow:0 0 0 3px rgba(74,87,232,.12)">
+              </div>
+              <div>
+                <input type="number" step="0.01" min="0" value="{{ r.freight }}" onChange="{{ r.setFreight }}" aria-label="{{ r.name }} freight and duty, pounds" style="width:100%;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;color:#141821;background:#fff;border:1px solid #D5DAE4;border-radius:7px;padding:6px 8px;outline:none" style-focus="border-color:#4A57E8;box-shadow:0 0 0 3px rgba(74,87,232,.12)">
+              </div>
+              <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">{{ r.landed }}</div>
+              <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5B6373">{{ r.cogsTotal }}</div>
+              <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5B6373">{{ r.freightTotal }}</div>
+            </div>
+          </sc-for>
+          <div style="display:grid;grid-template-columns:2fr .7fr 1fr 1fr .8fr .95fr .95fr;gap:10px;align-items:center;padding:11px 12px;background:#F7F8FB">
+            <div style="font-size:12px;font-weight:700">Total entered</div>
+            <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600">{{ ciUnits }}</div>
+            <div></div>
+            <div></div>
+            <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#5B6373">{{ ciLanded }}</div>
+            <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:700">{{ ciCogs }}</div>
+            <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:700">{{ ciFreight }}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px">
+          <button onClick="{{ ciReset }}" style="cursor:pointer;border:1px solid #E3E6EC;background:#fff;color:#5B6373;border-radius:8px;padding:7px 12px;font-family:'Instrument Sans',sans-serif;font-size:11.5px;font-weight:650" style-hover="background:#F1F3F7;color:#141821">Reset to saved costs</button>
+          <span style="font-size:11px;color:#6B7280">Entered costs cover {{ ciCoverage }} of units sold. Anything not entered is excluded from profit, not assumed at zero.</span>
+        </div>
+      </div>
+      </sc-if>
+    </section>
+
+    <footer style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px;background:#EEF0F4;border:1px solid #E3E6EC;border-radius:12px">
+      <span style="font-size:11.5px;font-weight:650;color:#5B6373">MVP 1 scope</span>
+      <span style="font-size:11.5px;color:#6B7280">Amazon only · executive page only · read-only. Multi-marketplace, compliance, entities, billing and admin are out of scope for this build.</span>
+    </footer>
+
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#4A57E8&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#4A57E8&quot;,&quot;#0E7C4A&quot;,&quot;#1F6FEB&quot;,&quot;#141821&quot;],&quot;section&quot;:&quot;Look&quot;},&quot;breakdownDefault&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Behaviour&quot;}}">
+const API_BASE = (typeof window !== 'undefined' && window.API_BASE) || 'http://localhost:4000';
+const money = n => '£' + Math.round(n).toLocaleString('en-GB');
+const neg = n => '−£' + Math.round(n).toLocaleString('en-GB');
+const p2 = n => '£' + n.toFixed(2);
+const num = v => { const n = parseFloat(v); return isFinite(n) && n >= 0 ? n : 0; };
+
+class Component extends DCLogic {
+  state = {
+    range: '30d', bk: null, api: false, bkView: 'period', open: {}, costs: {},
+    sellers: null, sellersLoading: true, sellersError: null, selectedSellerId: null,
+    realProducts: null, productsLoading: false, productsError: null,
+    realListings: null, listingsLoading: false, listingsError: null,
+    realInventory: null, inventoryLoading: false, inventoryError: null,
+    realInventoryHealth: null, inventoryHealthLoading: false, inventoryHealthError: null,
+    realOrders: null, ordersLoading: false, ordersError: null,
+    realLiveProducts: null, liveProductsLoading: false, liveProductsError: null,
+    realInventoryHealthDetailed: null, inventoryHealthDetailedLoading: false, inventoryHealthDetailedError: null,
+    realSales: null, salesLoading: false, salesError: null,
+    realFinancials: null, financialsLoading: false, financialsError: null,
+    realFinancialsPremium: null, financialsPremiumLoading: false, financialsPremiumError: null,
+    realPpc: null, ppcLoading: false, ppcError: null,
+    realSkuProfit: null, skuProfitLoading: false, skuProfitError: null,
+    lastSyncedAt: null, syncing: false,
+    // Per-section "not synchronized" flags. Set when a normal (non-Sync) load returns HTTP 200
+    // {status:'not_synchronized'} — the range is in-boundary but not yet in the local cache, and
+    // under strict-local a date change never auto-fetches. These drive the honest "Sync required"
+    // states without ever fabricating a value.
+    salesNotSynced: false, financialsNotSynced: false, financialsPremiumNotSynced: false,
+    salesAvailableFrom: null,
+    ppcNotSynced: false, skuProfitNotSynced: false, productsNotSynced: false,
+    listingsNotSynced: false, inventoryNotSynced: false, inventoryHealthNotSynced: false,
+    // Custom date range + available-history boundary (from GET /sellers/:id/history). customFrom/
+    // customTo hold the last APPLIED Custom range (only used while range === 'Custom'); draftFrom/
+    // draftTo hold the popover's in-progress edits and are only committed to customFrom/customTo by
+    // Apply, so typing in the date fields — or closing without applying — never changes the loaded
+    // data. calendarOpen toggles the date picker.
+    customFrom: null, customTo: null, draftFrom: null, draftTo: null, calendarOpen: false, customError: null,
+    history: null
+  };
+
+  // Signature of the current selection: the guard token every async load compares against after
+  // its await, so a stale response (an older range, or an older Custom from/to) can NEVER
+  // overwrite the currently-selected range — this is the request-generation protection, and it
+  // covers cache-served (fast) responses too since the check runs after the fetch resolves.
+  __sig() {
+    return this.state.range === 'Custom'
+      ? ('Custom:' + this.state.customFrom + ':' + this.state.customTo)
+      : this.state.range;
+  }
+
+  // Query string for the current selection: standard ranges pass range=<id>; Custom passes
+  // range=Custom&from&to. Built once per load and reused for every section so all sections
+  // request the same window.
+  __rangeQuery() {
+    if (this.state.range === 'Custom') {
+      return 'range=Custom&from=' + encodeURIComponent(this.state.customFrom || '') +
+        '&to=' + encodeURIComponent(this.state.customTo || '');
+    }
+    return 'range=' + encodeURIComponent(this.state.range);
+  }
+
+  // True when the current selection is a complete, loadable window (Custom needs both dates).
+  __selectionReady() {
+    if (this.state.range === 'Custom') return !!(this.state.customFrom && this.state.customTo);
+    return true;
+  }
+
+  // Appends refresh=1 to a URL only during an explicit manual Sync, so ordinary loads/range
+  // switches stay cache-first (0 DataDoe exports) while Sync forces a fresh export.
+  __withRefresh(url) {
+    if (!this.__forceRefresh) return url;
+    return url + (url.indexOf('?') === -1 ? '?' : '&') + 'refresh=1';
+  }
+
+  // Manual "Sync data": force-refresh every dataset for the current seller + range. Sets the
+  // force-refresh flag for the duration of one full reload, then clears it so subsequent
+  // automatic loads return to cache-first. A failed refresh never erases data — the backend
+  // serves the last good cached rows (marked stale), so the dashboard is never blanked.
+  __syncData() {
+    const id = this.state.selectedSellerId;
+    if (!id || this.state.syncing) return;
+    this.__forceRefresh = true;
+    this.setState({ syncing: true });
+    Promise.resolve(this.__loadSellerData(id)).finally(() => {
+      this.__forceRefresh = false;
+      this.setState({ syncing: false });
+      // Refresh the local-coverage view (calendar "Synced locally" line) now that the Sync has
+      // (potentially) extended what is stored on disk. Token-free — /history never calls DataDoe.
+      this.__loadHistory(id);
+    });
+  }
+
+  async componentDidMount() {
+    try {
+      const res = await fetch(API_BASE + '/api/sellers');
+      if (!res.ok) {
+        let msg = 'Request failed (' + res.status + ')';
+        try {
+          const body = await res.json();
+          if (body && typeof body.message === 'string') msg = body.message;
+        } catch (e) {}
+        this.setState({ sellersLoading: false, sellersError: msg });
+        return;
+      }
+      const body = await res.json();
+      const sellers = Array.isArray(body.data) ? body.data : [];
+      const firstId = sellers.length ? sellers[0].id : null;
+      this.setState({
+        sellers,
+        sellersLoading: false,
+        sellersError: null,
+        selectedSellerId: firstId
+      });
+      if (firstId) {
+        this.__loadHistory(firstId);
+        this.__loadSellerData(firstId);
+      }
+    } catch (e) {
+      this.setState({ sellersLoading: false, sellersError: (e && e.message) ? e.message : 'Network error' });
+    }
+  }
+
+  // Available-history boundary for the Custom calendar. Pure server-side computation (no DataDoe
+  // export, so it works even while the account is token-limited/402). Failure is non-fatal: the
+  // calendar simply falls back to a client-side 2-year min until this resolves.
+  async __loadHistory(sellerId) {
+    try {
+      const res = await fetch(API_BASE + '/api/sellers/' + encodeURIComponent(sellerId) + '/history');
+      if (!res.ok) return;
+      const body = await res.json();
+      if (this.state.selectedSellerId === sellerId && body && body.availableHistory) {
+        this.setState({ history: body });
+      }
+    } catch (e) { /* non-fatal */ }
+  }
+
+  componentDidUpdate() {
+    const id = this.state.selectedSellerId;
+    if (id && id !== this.__lastLoadedSellerId) {
+      this.__loadHistory(id);
+      this.__loadSellerData(id);
+      return;
+    }
+    // !this.__loadingSellerData: a full seller load already sequences these same five
+    // fetches at its tail (reading this.state.range live at each step), so if one is still
+    // in flight, firing this branch too would run it concurrently with that tail — the same
+    // class of concurrent-DataDoe-call bug the comment in __loadSellerData below already
+    // documents having hit once (429s from duplicate concurrent requests). Once the in-flight
+    // load finishes it settles __lastLoadedSig itself, so this branch naturally re-checks
+    // on the next render.
+    // !this.__loadingRangeData: guards the same way against a second range change landing
+    // while the previous range's own five-call chain is still mid-flight (e.g. clicking two
+    // range buttons in quick succession) — verified live: without this guard the tail of the
+    // first chain and the start of the second overlapped enough to draw a 429 on one call.
+    // Compare on the full selection SIGNATURE (range + custom from/to), not just range, so a new
+    // Custom window (same 'Custom' range, different dates) is correctly detected as a change.
+    // Skip while a Custom selection is still incomplete (only one date picked).
+    if (id && !this.__loadingSellerData && !this.__loadingRangeData && this.__selectionReady() && this.__sig() !== this.__lastLoadedSig) {
+      this.__loadRangeData(id);
+    }
+  }
+
+  // Sequential on purpose, same org-wide DataDoe rate-limit reason as __loadSellerData's tail
+  // below (verified live: firing these five concurrently via Promise.all returned 429 on every
+  // one of them). Mirrors that tail's exact call order and live re-read of this.state.range at
+  // each step so a range change mid-chain is picked up rather than using a stale captured value.
+  async __loadRangeData(sellerId) {
+    this.__loadingRangeData = true;
+    await this.__loadSalesSummary(sellerId);
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingRangeData = false; return; }
+    await this.__loadFinancialsSummary(sellerId);
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingRangeData = false; return; }
+    await this.__loadFinancialsSummaryPremium(sellerId);
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingRangeData = false; return; }
+    await this.__loadPpcSummary(sellerId);
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingRangeData = false; return; }
+    await this.__loadSkuProfitSummary(sellerId);
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingRangeData = false; return; }
+    await this.__loadOrders(sellerId);
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingRangeData = false; return; }
+    await this.__loadLiveProducts(sellerId);
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingRangeData = false; return; }
+    await this.__loadInventoryHealthDetailed(sellerId);
+    this.__loadingRangeData = false;
+    if (this.state.selectedSellerId === sellerId) {
+      this.setState({ lastSyncedAt: Date.now() });
+    }
+  }
+
+  // Returns the calendar day after a YYYY-MM-DD string (UTC-safe, no timezone drift), e.g.
+  // '2026-07-19' -> '2026-07-20'. Used to phrase the S&T "available from" leading-gap message.
+  __addOneDay(ymd) {
+    const parts = String(ymd).split('-').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return null;
+    const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2] + 1));
+    const p = (n) => (n < 10 ? '0' + n : '' + n);
+    return dt.getUTCFullYear() + '-' + p(dt.getUTCMonth() + 1) + '-' + p(dt.getUTCDate());
+  }
+
+  // UTC-safe inclusive day count between two YYYY-MM-DD strings, e.g. '2026-07-20'..'2026-07-31' -> 12.
+  __daysInclusive(from, to) {
+    const p = (s) => String(s).split('-').map(Number);
+    const [fy, fm, fd] = p(from), [ty, tm, td] = p(to);
+    return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86400000) + 1;
+  }
+
+  // 2026-09-01: a coverage-aware source can now serve a genuinely PARTIAL period (leading or
+  // trailing gap) instead of blacking the whole range out — the real covered days are real, never
+  // fabricated, but a bare total would be misread as the full-period figure. This makes that
+  // explicit: "Partial — 12 of 31 days", computed from the backend's own `coverage.covered`/
+  // `requested` (token-free, never invented).
+  __partialDaysLabel(coverage) {
+    if (!coverage || !Array.isArray(coverage.covered) || !coverage.requested) return null;
+    const coveredDays = coverage.covered.reduce((sum, iv) => sum + this.__daysInclusive(iv.from, iv.to), 0);
+    const totalDays = this.__daysInclusive(coverage.requested.from, coverage.requested.to);
+    return 'Partial — ' + coveredDays + ' of ' + totalDays + ' days';
+  }
+
+  async __loadSalesSummary(sellerId) {
+    const sig = this.__sig();
+    const qs = this.__rangeQuery();
+    this.__lastLoadedSig = sig;
+    this.setState({ salesLoading: true, salesError: null, salesNotSynced: false, salesAvailableFrom: null });
+    try {
+      const res = await fetch(this.__withRefresh(
+        API_BASE + '/api/sellers/' + encodeURIComponent(sellerId) + '/sales-summary?' + qs
+      ));
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        if (!res.ok) {
+          let msg = 'Request failed (' + res.status + ')';
+          try { const b = await res.json(); if (b && typeof b.message === 'string') msg = b.message; } catch (e) {}
+          this.setState({ salesLoading: false, salesError: msg, realSales: null });
+        } else {
+          const body = await res.json();
+          if (body && body.status === 'not_synchronized') {
+            // Leading-gap disclosure: this account genuinely has no upstream Sales & Traffic
+            // rows before 2026-07-20, so a range that STARTS earlier is honestly not served.
+            // Rather than a bare "Not available", surface WHEN the data begins — but only when
+            // real S&T data exists LATER inside the requested range (the leading missing gap
+            // ends before the range end). Derived from the backend's own `missing` intervals
+            // (local, token-free); never fabricated, never shown when the whole range is empty.
+            let availableFrom = null;
+            const reqFrom = body.dateRangeRequested && body.dateRangeRequested.from;
+            const reqTo = body.dateRangeRequested && body.dateRangeRequested.to;
+            const missing = Array.isArray(body.missing) ? body.missing : [];
+            const lead = missing.find(m => m && m.from === reqFrom);
+            if (lead && lead.to && reqTo && lead.to < reqTo) availableFrom = this.__addOneDay(lead.to);
+            this.setState({ salesLoading: false, salesError: null, realSales: null, salesNotSynced: true, salesAvailableFrom: availableFrom });
+          } else {
+            this.setState({ salesLoading: false, salesError: null, realSales: body });
+          }
+        }
+      }
+    } catch (e) {
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        this.setState({ salesLoading: false, salesError: (e && e.message) || 'Network error', realSales: null });
+      }
+    }
+  }
+
+  async __loadFinancialsSummary(sellerId) {
+    const sig = this.__sig();
+    const qs = this.__rangeQuery();
+    this.setState({ financialsLoading: true, financialsError: null, financialsNotSynced: false });
+    try {
+      const res = await fetch(this.__withRefresh(
+        API_BASE + '/api/sellers/' + encodeURIComponent(sellerId) + '/financials-summary?' + qs
+      ));
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        if (!res.ok) {
+          let msg = 'Request failed (' + res.status + ')';
+          try { const b = await res.json(); if (b && typeof b.message === 'string') msg = b.message; } catch (e) {}
+          this.setState({ financialsLoading: false, financialsError: msg, realFinancials: null });
+        } else {
+          const body = await res.json();
+          if (body && body.status === 'not_synchronized') {
+            this.setState({ financialsLoading: false, financialsError: null, realFinancials: null, financialsNotSynced: true });
+          } else {
+            this.setState({ financialsLoading: false, financialsError: null, realFinancials: body });
+          }
+        }
+      }
+    } catch (e) {
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        this.setState({ financialsLoading: false, financialsError: (e && e.message) || 'Network error', realFinancials: null });
+      }
+    }
+  }
+
+  // Premium, additive-only: failures here (including no Premium access) never touch
+  // financialsError/realFinancials above, so the free Net revenue KPI stays intact.
+  async __loadFinancialsSummaryPremium(sellerId) {
+    const sig = this.__sig();
+    const qs = this.__rangeQuery();
+    this.setState({ financialsPremiumLoading: true, financialsPremiumError: null, financialsPremiumNotSynced: false });
+    try {
+      const res = await fetch(this.__withRefresh(
+        API_BASE + '/api/sellers/' + encodeURIComponent(sellerId) + '/financials-summary-premium?' + qs
+      ));
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        if (!res.ok) {
+          let msg = 'Request failed (' + res.status + ')';
+          try { const b = await res.json(); if (b && typeof b.message === 'string') msg = b.message; } catch (e) {}
+          this.setState({ financialsPremiumLoading: false, financialsPremiumError: msg, realFinancialsPremium: null });
+        } else {
+          const body = await res.json();
+          if (body && body.status === 'not_synchronized') {
+            this.setState({ financialsPremiumLoading: false, financialsPremiumError: null, realFinancialsPremium: null, financialsPremiumNotSynced: true });
+          } else {
+            this.setState({ financialsPremiumLoading: false, financialsPremiumError: null, realFinancialsPremium: body });
+          }
+        }
+      }
+    } catch (e) {
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        this.setState({ financialsPremiumLoading: false, financialsPremiumError: (e && e.message) || 'Network error', realFinancialsPremium: null });
+      }
+    }
+  }
+
+  async __loadPpcSummary(sellerId) {
+    const sig = this.__sig();
+    const qs = this.__rangeQuery();
+    this.setState({ ppcLoading: true, ppcError: null, ppcNotSynced: false });
+    try {
+      const res = await fetch(this.__withRefresh(
+        API_BASE + '/api/sellers/' + encodeURIComponent(sellerId) + '/ppc-summary?' + qs
+      ));
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        if (!res.ok) {
+          let msg = 'Request failed (' + res.status + ')';
+          try { const b = await res.json(); if (b && typeof b.message === 'string') msg = b.message; } catch (e) {}
+          this.setState({ ppcLoading: false, ppcError: msg, realPpc: null });
+        } else {
+          const body = await res.json();
+          if (body && body.status === 'not_synchronized') {
+            this.setState({ ppcLoading: false, ppcError: null, realPpc: null, ppcNotSynced: true });
+          } else {
+            this.setState({ ppcLoading: false, ppcError: null, realPpc: body });
+          }
+        }
+      }
+    } catch (e) {
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        this.setState({ ppcLoading: false, ppcError: (e && e.message) || 'Network error', realPpc: null });
+      }
+    }
+  }
+
+  async __loadSkuProfitSummary(sellerId) {
+    const sig = this.__sig();
+    const qs = this.__rangeQuery();
+    this.setState({ skuProfitLoading: true, skuProfitError: null, skuProfitNotSynced: false });
+    try {
+      const res = await fetch(this.__withRefresh(
+        API_BASE + '/api/sellers/' + encodeURIComponent(sellerId) + '/sku-profit-summary?' + qs
+      ));
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        if (!res.ok) {
+          let msg = 'Request failed (' + res.status + ')';
+          try { const b = await res.json(); if (b && typeof b.message === 'string') msg = b.message; } catch (e) {}
+          this.setState({ skuProfitLoading: false, skuProfitError: msg, realSkuProfit: null });
+        } else {
+          const body = await res.json();
+          if (body && body.status === 'not_synchronized') {
+            this.setState({ skuProfitLoading: false, skuProfitError: null, realSkuProfit: null, skuProfitNotSynced: true });
+          } else {
+            this.setState({ skuProfitLoading: false, skuProfitError: null, realSkuProfit: body });
+          }
+        }
+      }
+    } catch (e) {
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        this.setState({ skuProfitLoading: false, skuProfitError: (e && e.message) || 'Network error', realSkuProfit: null });
+      }
+    }
+  }
+
+  async __loadOrders(sellerId) {
+    const sig = this.__sig();
+    const qs = this.__rangeQuery();
+    this.setState({ ordersLoading: true, ordersError: null });
+    try {
+      const res = await fetch(API_BASE + '/api/sellers/' + encodeURIComponent(sellerId) + '/orders?' + qs);
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        if (!res.ok) {
+          let msg = 'Request failed (' + res.status + ')';
+          try { const b = await res.json(); if (b && typeof b.error === 'string') msg = b.error; } catch (e) {}
+          this.setState({ ordersLoading: false, ordersError: msg, realOrders: null });
+        } else {
+          this.setState({ ordersLoading: false, ordersError: null, realOrders: await res.json() });
+        }
+      }
+    } catch (e) {
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        this.setState({ ordersLoading: false, ordersError: (e && e.message) || 'Network error', realOrders: null });
+      }
+    }
+  }
+
+  async __loadLiveProducts(sellerId) {
+    const sig = this.__sig();
+    const qs = this.__rangeQuery();
+    this.setState({ liveProductsLoading: true, liveProductsError: null });
+    try {
+      const res = await fetch(API_BASE + '/api/sellers/' + encodeURIComponent(sellerId) + '/live-products?' + qs);
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        if (!res.ok) {
+          let msg = 'Request failed (' + res.status + ')';
+          try { const b = await res.json(); if (b && typeof b.error === 'string') msg = b.error; } catch (e) {}
+          this.setState({ liveProductsLoading: false, liveProductsError: msg, realLiveProducts: null });
+        } else {
+          this.setState({ liveProductsLoading: false, liveProductsError: null, realLiveProducts: await res.json() });
+        }
+      }
+    } catch (e) {
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        this.setState({ liveProductsLoading: false, liveProductsError: (e && e.message) || 'Network error', realLiveProducts: null });
+      }
+    }
+  }
+
+  async __loadInventoryHealthDetailed(sellerId) {
+    const sig = this.__sig();
+    const qs = this.__rangeQuery();
+    this.setState({ inventoryHealthDetailedLoading: true, inventoryHealthDetailedError: null });
+    try {
+      const res = await fetch(API_BASE + '/api/sellers/' + encodeURIComponent(sellerId) + '/inventory-health-detailed?' + qs);
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        if (!res.ok) {
+          let msg = 'Request failed (' + res.status + ')';
+          try { const b = await res.json(); if (b && typeof b.error === 'string') msg = b.error; } catch (e) {}
+          this.setState({ inventoryHealthDetailedLoading: false, inventoryHealthDetailedError: msg, realInventoryHealthDetailed: null });
+        } else {
+          this.setState({ inventoryHealthDetailedLoading: false, inventoryHealthDetailedError: null, realInventoryHealthDetailed: await res.json() });
+        }
+      }
+    } catch (e) {
+      if (this.state.selectedSellerId === sellerId && this.__sig() === sig) {
+        this.setState({ inventoryHealthDetailedLoading: false, inventoryHealthDetailedError: (e && e.message) || 'Network error', realInventoryHealthDetailed: null });
+      }
+    }
+  }
+
+  async __loadSellerData(sellerId) {
+    this.__lastLoadedSellerId = sellerId;
+    // Claim the current range immediately too, not just the seller id. Otherwise every
+    // intermediate setState below (productsLoading, listingsLoading, ...) re-triggers
+    // componentDidUpdate while __lastLoadedSig is still unset from a prior seller, which
+    // fires a second, concurrent copy of the sales/financials/ppc fetch chain via the range-
+    // change branch — verified live via duplicate concurrent requests and resulting 429s.
+    this.__lastLoadedSig = this.__sig();
+    // Also true for the whole duration of this method (cleared in the finally below): guards
+    // componentDidUpdate's range-change branch from firing a concurrent copy of the same
+    // sales/financials/ppc/sku-profit chain this method's own tail sequences below.
+    this.__loadingSellerData = true;
+    this.setState({
+      productsLoading: true, productsError: null,
+      listingsLoading: true, listingsError: null,
+      inventoryLoading: true, inventoryError: null,
+      inventoryHealthLoading: true, inventoryHealthError: null,
+      // Previously left at whatever the prior seller's load left them (often false), so for
+      // the window between this setState and the sequential fetches below actually reaching
+      // sales/financials/ppc/sku-profit, hasRealSales/hasRealFinancials/etc. could read the
+      // PREVIOUS seller's still-cached realSales/realFinancials/... as if it were current —
+      // stale data shown under the newly selected seller. Resetting these loading flags here
+      // too closes that window the same way products/listings/inventory already were.
+      salesLoading: true, salesError: null,
+      financialsLoading: true, financialsError: null,
+      financialsPremiumLoading: true, financialsPremiumError: null,
+      ppcLoading: true, ppcError: null,
+      skuProfitLoading: true, skuProfitError: null,
+      productsNotSynced: false, listingsNotSynced: false,
+      inventoryNotSynced: false, inventoryHealthNotSynced: false
+    });
+
+    const base = API_BASE + '/api/sellers/' + encodeURIComponent(sellerId);
+
+    // Sequential on purpose: DataDoe enforces an org-wide ~2 req/s rate limit, and each of
+    // these endpoints makes several DataDoe calls internally. Firing both at once risked a
+    // 429 on one of them. Listings only starts once products has fully settled.
+    try {
+      const res = await fetch(this.__withRefresh(base + '/products?pageSize=5'));
+      if (this.state.selectedSellerId === sellerId) {
+        if (!res.ok) {
+          let msg = 'Request failed (' + res.status + ')';
+          try { const b = await res.json(); if (b && typeof b.message === 'string') msg = b.message; } catch (e) {}
+          this.setState({ productsLoading: false, productsError: msg, realProducts: [] });
+        } else {
+          const body = await res.json();
+          if (body && body.status === 'not_synchronized') {
+            this.setState({ productsLoading: false, productsError: null, realProducts: [], productsNotSynced: true });
+          } else {
+            this.setState({ productsLoading: false, productsError: null, realProducts: Array.isArray(body.rows) ? body.rows : [] });
+          }
+        }
+      }
+    } catch (e) {
+      if (this.state.selectedSellerId === sellerId) {
+        this.setState({ productsLoading: false, productsError: (e && e.message) || 'Network error', realProducts: [] });
+      }
+    }
+
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingSellerData = false; return; }
+
+    try {
+      const res = await fetch(this.__withRefresh(base + '/listings'));
+      if (this.state.selectedSellerId === sellerId) {
+        if (!res.ok) {
+          let msg = 'Request failed (' + res.status + ')';
+          try { const b = await res.json(); if (b && typeof b.message === 'string') msg = b.message; } catch (e) {}
+          this.setState({ listingsLoading: false, listingsError: msg, realListings: [] });
+        } else {
+          const body = await res.json();
+          if (body && body.status === 'not_synchronized') {
+            this.setState({ listingsLoading: false, listingsError: null, realListings: [], listingsNotSynced: true });
+          } else {
+            this.setState({ listingsLoading: false, listingsError: null, realListings: Array.isArray(body.rows) ? body.rows : [] });
+          }
+        }
+      }
+    } catch (e) {
+      if (this.state.selectedSellerId === sellerId) {
+        this.setState({ listingsLoading: false, listingsError: (e && e.message) || 'Network error', realListings: [] });
+      }
+    }
+
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingSellerData = false; return; }
+
+    try {
+      const res = await fetch(this.__withRefresh(base + '/inventory'));
+      if (this.state.selectedSellerId === sellerId) {
+        if (!res.ok) {
+          let msg = 'Request failed (' + res.status + ')';
+          try { const b = await res.json(); if (b && typeof b.message === 'string') msg = b.message; } catch (e) {}
+          this.setState({ inventoryLoading: false, inventoryError: msg, realInventory: null });
+        } else {
+          const body = await res.json();
+          if (body && body.status === 'not_synchronized') {
+            this.setState({ inventoryLoading: false, inventoryError: null, realInventory: null, inventoryNotSynced: true });
+          } else {
+            this.setState({ inventoryLoading: false, inventoryError: null, realInventory: body });
+          }
+        }
+      }
+    } catch (e) {
+      if (this.state.selectedSellerId === sellerId) {
+        this.setState({ inventoryLoading: false, inventoryError: (e && e.message) || 'Network error', realInventory: null });
+      }
+    }
+
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingSellerData = false; return; }
+
+    // Premium, additive-only: failures here never touch inventoryError/realInventory above,
+    // so the free inventory KPIs stay intact even if this account loses Premium access.
+    try {
+      const res = await fetch(this.__withRefresh(base + '/inventory-health'));
+      if (this.state.selectedSellerId === sellerId) {
+        if (!res.ok) {
+          let msg = 'Request failed (' + res.status + ')';
+          try { const b = await res.json(); if (b && typeof b.message === 'string') msg = b.message; } catch (e) {}
+          this.setState({ inventoryHealthLoading: false, inventoryHealthError: msg, realInventoryHealth: null });
+        } else {
+          const body = await res.json();
+          if (body && body.status === 'not_synchronized') {
+            this.setState({ inventoryHealthLoading: false, inventoryHealthError: null, realInventoryHealth: null, inventoryHealthNotSynced: true });
+          } else {
+            this.setState({ inventoryHealthLoading: false, inventoryHealthError: null, realInventoryHealth: body });
+          }
+        }
+      }
+    } catch (e) {
+      if (this.state.selectedSellerId === sellerId) {
+        this.setState({ inventoryHealthLoading: false, inventoryHealthError: (e && e.message) || 'Network error', realInventoryHealth: null });
+      }
+    }
+
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingSellerData = false; return; }
+
+    await this.__loadSalesSummary(sellerId);
+
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingSellerData = false; return; }
+
+    await this.__loadFinancialsSummary(sellerId);
+
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingSellerData = false; return; }
+
+    await this.__loadFinancialsSummaryPremium(sellerId);
+
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingSellerData = false; return; }
+
+    await this.__loadPpcSummary(sellerId);
+
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingSellerData = false; return; }
+
+    await this.__loadSkuProfitSummary(sellerId);
+
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingSellerData = false; return; }
+
+    await this.__loadOrders(sellerId);
+
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingSellerData = false; return; }
+
+    await this.__loadLiveProducts(sellerId);
+
+    if (this.state.selectedSellerId !== sellerId) { this.__loadingSellerData = false; return; }
+
+    await this.__loadInventoryHealthDetailed(sellerId);
+
+    this.__loadingSellerData = false;
+    if (this.state.selectedSellerId === sellerId) {
+      this.setState({ lastSyncedAt: Date.now() });
+    }
+  }
+
+  renderVals() {
+    const ac = this.props.accent || '#4A57E8';
+    const bk = this.state.bk === null ? this.props.breakdownDefault !== false : this.state.bk;
+    const api = this.state.api;
+
+    // ---- seller/account data (DataDoe, via our backend GET /api/sellers) ----
+    const sellers = this.state.sellers || [];
+    const sellersLoading = this.state.sellersLoading;
+    const sellersError = this.state.sellersError;
+    const selectedSeller = sellers.find(s => s.id === this.state.selectedSellerId) || null;
+    const sellersMultiple = sellers.length > 1;
+
+    const sellerOptions = sellers.map(s => ({
+      id: s.id,
+      label: s.name + (s.marketplaceCountryCode ? ' · ' + s.marketplaceCountryCode : '')
+    }));
+
+    const sellerStatusLabel = sellersLoading
+      ? 'Loading seller…'
+      : sellersError
+        ? 'Seller data unavailable'
+        : selectedSeller
+          ? selectedSeller.name + (selectedSeller.marketplaceCountryName ? ' · ' + selectedSeller.marketplaceCountryName : '')
+          : sellers.length === 0
+            ? 'No seller connected'
+            : 'Select a seller';
+
+    const sellerBadgeTitle = sellersError
+      ? sellersError
+      : sellersLoading
+        ? 'Fetching seller data…'
+        : selectedSeller
+          ? 'Seller ID: ' + selectedSeller.id
+          : '';
+
+    // ---- Data freshness (from the backend cache layer) --------------------------------------
+    // Each DataDoe-backed response now carries cache metadata {status, retrievedAt} describing
+    // whether its rows were fetched live this request ("fresh"), served from the store within the
+    // freshness window ("cached"), or served beyond it ("stale"). We surface the OLDEST retrieval
+    // time across the loaded sections (the honest "data is at least this old") plus a single
+    // label. This distinguishes live from cached data so stale data is never presented as current.
+    // Products/Listings (range-independent catalogue) are intentionally excluded from this badge;
+    // it reflects the freshness of the financial/operational datasets that drive the KPIs.
+    // Strict-local "needs sync" signal: any section whose range is in-boundary but not yet in the
+    // local cache (backend returned status:'not_synchronized' on a normal, non-Sync read). Drives
+    // the honest "Sync required" banner/badge — never fabricates a value.
+    const notSyncedFlags = [
+      this.state.salesNotSynced, this.state.financialsNotSynced,
+      this.state.financialsPremiumNotSynced, this.state.ppcNotSynced, this.state.skuProfitNotSynced,
+      this.state.productsNotSynced, this.state.listingsNotSynced, this.state.inventoryNotSynced,
+      this.state.inventoryHealthNotSynced
+    ];
+    const anyNotSynced = notSyncedFlags.some(Boolean);
+    // The banner text says "for this period", so its full-vs-partial wording must be judged only
+    // against the FIVE sections whose data actually depends on the selected calendar range (driven
+    // by __loadRangeData on every Today/7d/30d/MTD/Custom change). Products/Listings/Inventory/
+    // InventoryHealth are seller-level snapshots loaded once by __loadSellerData and never refetch
+    // on a range change, so folding them into "for this period" would be comparing unrelated data —
+    // e.g. it would make "every period-metric is unsynced" nearly unreachable whenever the (range-
+    // independent) product catalogue happens to already be cached, which is the common case.
+    const periodNotSyncedFlags = [
+      this.state.salesNotSynced, this.state.financialsNotSynced,
+      this.state.financialsPremiumNotSynced, this.state.ppcNotSynced, this.state.skuProfitNotSynced
+    ];
+    // True only when NONE of the period-dependent metrics have local data for the selected range —
+    // distinct from "some sections are covered, some aren't" (e.g. Profit by Date/SKU legitimately
+    // extending further than Sales & Traffic), which must never be described as blanket unavailable
+    // while it's simultaneously showing real cached numbers right below the banner.
+    const allNotSynced = periodNotSyncedFlags.every(Boolean);
+
+    const cacheMetas = [
+      this.state.realSales, this.state.realFinancials, this.state.realFinancialsPremium,
+      this.state.realPpc, this.state.realSkuProfit, this.state.realInventory, this.state.realInventoryHealth
+    ].map(s => s && s.cache).filter(c => c && c.retrievedAt);
+    const dataFreshness = (() => {
+      if (!cacheMetas.length) return null;
+      const oldest = cacheMetas.reduce((min, c) => (!min || c.retrievedAt < min) ? c.retrievedAt : min, null);
+      const anyStale = cacheMetas.some(c => c.status === 'stale');
+      const allFresh = cacheMetas.every(c => c.status === 'fresh');
+      // Honest freshness label: 'Fresh' only when every section was just fetched from DataDoe this
+      // load; 'Stale' if any is beyond its window; otherwise 'Cached'. Never "live" for cached data.
+      return { retrievedAt: oldest, label: anyStale ? 'Stale' : (allFresh ? 'Fresh' : 'Cached') };
+    })();
+
+    // Header sync badge: shows sync-in-progress, then real data freshness (label + retrieval time),
+    // falling back to the browser's last-completed-load time only before any cache metadata exists.
+    const syncStamp = (() => {
+      if (this.state.syncing) return 'Syncing…';
+      const fmtAge = (ms) => {
+        const t = new Date(ms);
+        const mins = Math.max(0, Math.round((Date.now() - t.getTime()) / 60000));
+        const hhmm = t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+        const age = mins < 1 ? 'just now' : (mins < 60 ? mins + 'm ago' : Math.round(mins / 60) + 'h ago');
+        return hhmm + ' · ' + age;
+      };
+      if (dataFreshness && dataFreshness.retrievedAt) {
+        return dataFreshness.label + ' · ' + fmtAge(new Date(dataFreshness.retrievedAt).getTime());
+      }
+      // No successfully-synced dataset exists (initial load still in flight, or every source is
+      // unavailable/not-synced). Never show a timestamp here — that would imply a fresh sync that
+      // did not happen. Show progress while loading, then "Needs sync" when the range simply isn't
+      // synchronized locally yet (distinct from a genuine error/402 "No data").
+      const anyLoading = this.state.sellersLoading || this.state.salesLoading || this.state.financialsLoading ||
+        this.state.financialsPremiumLoading || this.state.ppcLoading || this.state.skuProfitLoading ||
+        this.state.inventoryLoading || this.state.inventoryHealthLoading;
+      return anyLoading ? 'Syncing…' : (anyNotSynced ? 'Needs sync' : 'No data');
+    })();
+    const syncStampColor = this.state.syncing ? '#8A5A00'
+      : (dataFreshness && dataFreshness.label === 'Stale') ? '#C0342A'
+      : (!dataFreshness && anyNotSynced) ? '#2A35A8'
+      : (!dataFreshness) ? '#8A919F'
+      : '#A07B36';
+
+    const sellerDotColor = sellersLoading ? '#B4820A' : sellersError ? '#C0342A' : selectedSeller ? '#12A150' : '#8A919F';
+    const sellerBadgeBg = sellersError ? '#FDECEA' : '#FFF8EC';
+    const sellerBadgeBorder = sellersError ? '#F5C9C3' : '#F5DFB4';
+    const sellerBadgeTextCol = sellersError ? '#8A2A1F' : '#8A5A00';
+    const onSellerChange = (e) => this.setState({ selectedSellerId: e.target.value });
+
+    const KEYS = ['kpis', 'trend', 'costs', 'money', 'bk', 'products', 'ppc', 'inv', 'orders', 'lst'];
+    const isOpen = k => this.state.open[k] !== false;
+    const sec = (k, label) => ({
+      on: isOpen(k), rot: isOpen(k) ? '180deg' : '0deg',
+      title: isOpen(k) ? 'Hide this section' : 'Show this section',
+      expanded: isOpen(k) ? 'true' : 'false',
+      aria: (isOpen(k) ? 'Collapse ' : 'Expand ') + (label || 'section') + ' details',
+      toggle: () => this.setState(st => ({ open: { ...st.open, [k]: !(st.open[k] !== false) } }))
+    });
+    const anyOpen = KEYS.some(isOpen);
+
+    // ---- manual cost entry (unit cost / freight stay user-entered — see below) ----
+    const ent = this.state.costs;
+    const raw = (a, k, d) => (ent[a] && ent[a][k] !== undefined) ? ent[a][k] : d.toFixed(2);
+    const setCost = (a, k) => e => {
+      const v = e.target.value;
+      this.setState(st => ({ costs: { ...st.costs, [a]: { ...(st.costs[a] || {}), [k]: v } } }));
+    };
+
+    // Selecting a preset range also closes the calendar and clears any Custom validation error.
+    const ranges = ['7d', '30d'].map(id => {
+      const on = this.state.range === id;
+      return { label: id, go: () => this.setState({ range: id, calendarOpen: false, customError: null }), bg: on ? '#fff' : 'transparent', col: on ? '#141821' : '#6B7280', sh: on ? '0 1px 2px rgba(16,24,40,.10)' : 'none' };
+    });
+
+    // ---- Custom range + calendar boundary --------------------------------------------------
+    // Boundary from GET /history (server-computed, token-free). Until it resolves, fall back to a
+    // client-side 2-year minimum so the picker is still usable and never offers an out-of-range day.
+    const hist = this.state.history;
+    const pad = n => (n < 10 ? '0' + n : '' + n);
+    const todayLocal = (() => { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); })();
+    const fallbackMin = (() => { const d = new Date(); d.setDate(d.getDate() - 730); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); })();
+    const histMin = (hist && hist.availableHistory && hist.availableHistory.earliest) || fallbackMin;
+    const histMax = (hist && hist.availableHistory && hist.availableHistory.latest) || todayLocal;
+    const customActive = this.state.range === 'Custom';
+    const calBg = (customActive || this.state.calendarOpen) ? '#fff' : 'transparent';
+    const calCol = (customActive || this.state.calendarOpen) ? '#141821' : '#6B7280';
+    const calSh = customActive ? '0 1px 2px rgba(16,24,40,.10)' : 'none';
+    const customLabel = customActive && this.state.customFrom && this.state.customTo
+      ? (this.state.customFrom + ' → ' + this.state.customTo)
+      : 'Custom';
+    // Opening the popover (re)seeds the draft from the last APPLIED custom range, so reopening
+    // always shows the actual active range and discards any previously-unapplied edit. Closing
+    // (either button) never touches customFrom/customTo, so an un-applied edit is simply dropped.
+    const toggleCalendar = () => this.setState(st => {
+      const opening = !st.calendarOpen;
+      return opening
+        ? { calendarOpen: true, customError: null, draftFrom: st.customFrom, draftTo: st.customTo }
+        : { calendarOpen: false, customError: null };
+    });
+    const onCustomFrom = (e) => this.setState({ draftFrom: e.target.value, customError: null });
+    const onCustomTo = (e) => this.setState({ draftTo: e.target.value, customError: null });
+    // Validate the picked window against the supported boundary BEFORE applying it — no request is
+    // ever made for an out-of-range window (the backend enforces the same rule as a second guard).
+    // Only Apply commits draftFrom/draftTo into customFrom/customTo (what __sig()/__rangeQuery()
+    // actually read), so editing the fields — or closing without applying — never triggers a load.
+    const applyCustom = () => {
+      const f = this.state.draftFrom, t = this.state.draftTo;
+      if (!f || !t) { this.setState({ customError: 'Pick both a start and end date.' }); return; }
+      if (f > t) { this.setState({ customError: 'Start date is after end date.' }); return; }
+      if (t > histMax) { this.setState({ customError: 'End date is in the future.' }); return; }
+      if (f < histMin) { this.setState({ customError: 'Start date is before the available history (' + histMin + ').' }); return; }
+      this.setState({ range: 'Custom', customFrom: f, customTo: t, calendarOpen: false, customError: null });
+    };
+    // Available-history + last-synced metadata line for the calendar panel.
+    const lastSyncedText = (dataFreshness && dataFreshness.retrievedAt)
+      ? new Date(dataFreshness.retrievedAt).toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short', hour12: false })
+      : '—';
+    const dataSourceStatus = dataFreshness ? dataFreshness.label
+      : (this.state.salesLoading ? 'Loading' : (anyNotSynced ? 'Needs sync' : 'Unavailable'));
+
+    // Actual local coverage (what has been synchronized to disk) vs the selectable 730-day boundary.
+    // The calendar shows both so the user can tell "selectable" from "already synced locally".
+    const localCov = hist && hist.localCoverage;
+    const localCoverageText = (localCov && localCov.synced && localCov.earliest && localCov.latest)
+      ? (localCov.earliest + ' → ' + localCov.latest)
+      : 'No local data yet';
+    // Strict-local banner: shown when the current selection isn't synchronized locally. Directs the
+    // user to Sync rather than silently calling DataDoe. Honest, never implies data exists.
+    const showSyncBanner = anyNotSynced && !this.state.syncing;
+    const syncBannerText = allNotSynced
+      ? 'Data not synchronized for this period — press "Sync data" to load it. Changing the date range never re-fetches remote data.'
+      : 'Some data is not synchronized for this period — figures below reflect only the sources that are locally available; sections without local coverage show "Not available". Press "Sync data" to load the rest. Changing the date range never re-fetches remote data.';
+
+    // ---- Partial local coverage -------------------------------------------------------------
+    // A section can hold real cached rows for PART of the selected range but not all of it (e.g.
+    // Sales & Traffic cached through 24 Aug while the range runs to 28 Aug). The backend now serves
+    // the real covered portion and reports the missing portion via `coverage`; the figures below
+    // reflect ONLY the cached dates (the missing dates are omitted, never counted as £0). This note
+    // states, per source, the last date actually cached so a partial total is never mistaken for a
+    // full-range one.
+    const periodCovSources = [
+      { label: 'Sales & Traffic', s: this.state.realSales },
+      { label: 'Settlements', s: this.state.realFinancials },
+      { label: 'Profit by Date', s: this.state.realFinancialsPremium },
+      { label: 'Ad Performance', s: this.state.realPpc },
+      { label: 'Profit by SKU', s: this.state.realSkuProfit }
+    ];
+    // 2026-09-01: a partial range can now be missing at the START (leading gap) as well as the
+    // END (trailing gap) — "cached through <end>" alone would hide a leading gap's missing head,
+    // so this states the actual covered span(s) instead of assuming the gap is always trailing.
+    const partialCovEntries = periodCovSources
+      .filter(x => x.s && x.s.coverage && x.s.coverage.partial && Array.isArray(x.s.coverage.covered) && x.s.coverage.covered.length)
+      .map(x => x.label + ' cached ' + x.s.coverage.covered.map(iv => iv.from + ' → ' + iv.to).join(', '));
+    const showPartialBanner = partialCovEntries.length > 0 && !this.state.syncing;
+    const partialCoverageText = 'Partial local coverage for this range — ' + partialCovEntries.join('; ') +
+      '. Figures reflect only the cached dates; the rest of this range is not synchronized and is shown as unavailable (never £0). Press "Sync data" to load it. Changing the date range never re-fetches remote data.';
+
+    // ---- Live sales: real DataDoe "Sales & Traffic by ASIN & Date" for the selected seller ----
+    // Verified fields (summed across all ASINs/dates in the selected range): total_sales,
+    // total_units, total_orders, session. Net revenue has no equivalent field in this or any
+    // other currently-connected source (that needs Finances/Settlements data), so it renders
+    // as an honest "Not available" instead of the old mock figure — which would otherwise show
+    // a "net" revenue exceeding the real gross sales below.
+    const salesLoading = this.state.salesLoading || sellersLoading;
+    const salesError = this.state.salesError;
+    const realSales = this.state.realSales;
+    const hasRealSales = !salesLoading && !salesError && !!realSales;
+    const salesTotals = hasRealSales ? realSales.totals : null;
+    const salesDerived = hasRealSales ? realSales.derived : null;
+    const salesDeltas = hasRealSales ? realSales.deltas : null;
+    const fmtDelta = (pct) => (pct === null || pct === undefined) ? null : (pct >= 0 ? '+' : '−') + Math.abs(pct).toFixed(1) + '%';
+
+    // ---- Cost Inputs: real per-ASIN identity from the same Sales & Traffic rows already
+    // fetched above (byAsin) — no extra DataDoe call. Top 5 real ASINs by revenue plus one
+    // "blended" row for the rest, mirroring the card's previous shape. Unit cost / freight stay
+    // manual: this account's own cogs_total_value/cogs_currency/item_supplier_name on this same
+    // source were checked live and are 0/null on every row — COGS was never uploaded to DataDoe
+    // for this account, so there is no verified unit-cost field to read instead. "Net / unit" is
+    // intentionally not computed per real ASIN: the old per-item referral/FBA/ads breakdown had
+    // no verified per-ASIN equivalent in any connected source, so reusing that fake breakdown
+    // against a real ASIN would be more misleading than the old fully-fake version, not less.
+    const realByAsinAll = hasRealSales ? (realSales.byAsin || []) : [];
+    const sortedByAsin = realByAsinAll.slice().sort((a, b) => b.sales - a.sales);
+    const topAsinRows = sortedByAsin.slice(0, 5);
+    const restAsinRows = sortedByAsin.slice(5);
+    const blendedRow = restAsinRows.length
+      ? {
+          asin: 'blended', displayAsin: 'blended · ' + restAsinRows.length + ' SKUs',
+          name: 'All other listings', units: restAsinRows.reduce((t, r) => t + r.units, 0),
+          blended: true
+        }
+      : null;
+    const asinRowsForCosts = blendedRow ? [...topAsinRows, blendedRow] : topAsinRows;
+
+    // Effective per-ASIN cost: an ASIN's own entered unit cost & freight if present, otherwise
+    // (for non-top-5 ASINs) the blended-row default. It never fabricates a cost: an ASIN with
+    // neither its own cost nor a blended default contributes 0 (excluded, not zeroed).
+    const top5Asins = new Set(topAsinRows.map(r => r.asin));
+    const blendedC = num(raw('blended', 'c', 0)), blendedF = num(raw('blended', 'f', 0));
+    const effCost = (asin) => {
+      const own = ent[asin];
+      const c = (own && own.c !== undefined) ? num(own.c) : (!top5Asins.has(asin) ? blendedC : 0);
+      const fr = (own && own.f !== undefined) ? num(own.f) : (!top5Asins.has(asin) ? blendedF : 0);
+      return { c, fr };
+    };
+    const costRowsRaw = asinRowsForCosts.map(r => {
+      const cRaw = raw(r.asin, 'c', 0), fRaw = raw(r.asin, 'f', 0);
+      const c = num(cRaw), fr = num(fRaw);
+      // Displayed per-row period totals: top-5 rows use their own cost; the blended row aggregates
+      // the effective cost of every tail ASIN so the displayed total reconciles with the grand total.
+      const rowCogs = r.blended ? restAsinRows.reduce((t, a) => t + effCost(a.asin).c * a.units, 0) : c * r.units;
+      const rowFreight = r.blended ? restAsinRows.reduce((t, a) => t + effCost(a.asin).fr * a.units, 0) : fr * r.units;
+      return { row: r, cRaw, fRaw, c, fr, cogsTotal: rowCogs, freightTotal: rowFreight };
+    });
+    const cogsTotal = realByAsinAll.reduce((t, a) => t + effCost(a.asin).c * a.units, 0);
+    const freightTotal = realByAsinAll.reduce((t, a) => t + effCost(a.asin).fr * a.units, 0);
+    const enteredUnits = realByAsinAll.reduce((t, a) => { const e = effCost(a.asin); return t + ((e.c > 0 || e.fr > 0) ? a.units : 0); }, 0);
+    const totalRealUnits = hasRealSales ? salesTotals.totalUnits : 0;
+    const dirty = Object.keys(ent).length > 0;
+
+    const costInputs = costRowsRaw.map(r => ({
+      name: r.row.blended ? r.row.name : r.row.name,
+      asin: r.row.blended ? r.row.displayAsin : r.row.asin,
+      units: Math.round(r.row.units).toLocaleString('en-GB'),
+      cogs: r.cRaw, freight: r.fRaw,
+      setCogs: setCost(r.row.asin, 'c'), setFreight: setCost(r.row.asin, 'f'),
+      landed: p2(r.c + r.fr), cogsTotal: money(r.cogsTotal), freightTotal: money(r.freightTotal),
+      rowBg: r.row.blended ? '#FAFBFD' : '#fff'
+    }));
+    // ---- Gross sales / Units sold basis (2026-09-01 redefinition): explicitly switched from the
+    // free "Sales & Traffic by ASIN & Date" table (ordered-basis, and DataDoe-deprecated — see the
+    // Data Scheme page) to DataDoe's OWN Profit & Loss figures (shipped-order basis, via the same
+    // "Profit by Date" archive Net Profit already uses). This was a deliberate, user-approved
+    // product decision, not a bug fix: it makes Gross Sales/Units Sold numerically match DataDoe's
+    // P&L "Sales"/"Units" for any date range, at the cost of retiring the distinct ordered-sales
+    // signal the old Sales & Traffic basis provided. Net Profit/Net Margin already used this same
+    // archive; Gross Sales/Units Sold now share its exact source, coverage, and date-range logic
+    // (see getPnlRange in datadoe.pnl.ts) — arbitrary ranges work automatically, nothing here is
+    // month-specific or hard-coded.
+    const financialsPremiumLoading = this.state.financialsPremiumLoading || sellersLoading;
+    const financialsPremiumError = this.state.financialsPremiumError;
+    const realFinancialsPremium = this.state.realFinancialsPremium;
+    const hasRealProfit = !financialsPremiumLoading && !financialsPremiumError && !!realFinancialsPremium;
+    const hasRealPnlSales = hasRealProfit && typeof realFinancialsPremium.totalSales === 'number' && realFinancialsPremium.unitsAvailable && typeof realFinancialsPremium.totalUnitsSold === 'number';
+
+    // A genuinely PARTIAL period (the P&L archive may not cover every requested day) must never be
+    // compared against a full prior period, and must never be silently mistaken for the full-period
+    // total: suppress the vs-prior delta and surface an explicit "Partial — N of M days" label
+    // instead, computed only from the backend's own coverage (never invented).
+    const salesCoverage = hasRealProfit ? realFinancialsPremium.coverage : null;
+    const salesPartial = !!(salesCoverage && salesCoverage.partial);
+    // Distinguishes a LEADING gap (the range is missing an arbitrarily large chunk at its START)
+    // from an ordinary TRAILING gap (missing only the most recent day or two — routine sync lag).
+    // Used ONLY to gate the cross-source cost cascade/TACOS below: mixing a leading-gap-shrunk
+    // Gross Sales with FULL-period Settlements/PPC totals would meaningfully skew every cost-line
+    // percentage, whereas a few-day trailing lag against similarly-lagged sources does not.
+    const salesLeadingGap = !!(salesPartial && salesCoverage.covered.length && salesCoverage.covered[0].from !== salesCoverage.requested.from);
+    const salesPartialLabel = salesPartial ? this.__partialDaysLabel(salesCoverage) : null;
+    const prevSalesPct = (hasRealPnlSales && typeof realFinancialsPremium.previousTotalSales === 'number' && realFinancialsPremium.previousTotalSales !== 0)
+      ? ((realFinancialsPremium.totalSales - realFinancialsPremium.previousTotalSales) / realFinancialsPremium.previousTotalSales) * 100 : null;
+    const prevUnitsPct = (hasRealPnlSales && typeof realFinancialsPremium.previousTotalUnitsSold === 'number' && realFinancialsPremium.previousTotalUnitsSold !== 0)
+      ? ((realFinancialsPremium.totalUnitsSold - realFinancialsPremium.previousTotalUnitsSold) / realFinancialsPremium.previousTotalUnitsSold) * 100 : null;
+    const grossSalesDelta = (hasRealPnlSales && !salesPartial) ? fmtDelta(prevSalesPct) : null;
+    const unitsSoldDelta = (hasRealPnlSales && !salesPartial) ? fmtDelta(prevUnitsPct) : null;
+    const rangeSubLabel = { Today: 'yesterday', '7d': 'prior 7d', '30d': 'prior 30d', MTD: 'prior period' }[this.state.range] || 'prior period';
+    const salesUnavailSub = financialsPremiumError || 'Not available';
+
+    // "DataDoe P&L · " prefix is ALWAYS shown here (not gated behind the opt-in "API map" toggle
+    // like the other KPIs) so this pair is never mistaken for the deprecated Sales & Traffic
+    // ordered-basis figures these KPIs used to show — the exact confusion this redefinition
+    // resolves by making both bases identical rather than merely labelling the difference.
+    const grossSalesKpi = {
+      label: 'Sales',
+      value: financialsPremiumLoading ? '—' : (hasRealPnlSales ? money(realFinancialsPremium.totalSales) : '—'),
+      delta: financialsPremiumLoading ? '—' : (hasRealPnlSales ? (salesPartial ? 'Partial' : (grossSalesDelta || '—')) : 'Not available'),
+      sub: financialsPremiumLoading ? 'Loading…' : ('P&L · ' + (hasRealPnlSales ? (salesPartial ? salesPartialLabel : ('vs ' + rangeSubLabel)) : salesUnavailSub)),
+      up: grossSalesDelta ? prevSalesPct >= 0 : true,
+      neutral: !hasRealPnlSales || salesPartial || !grossSalesDelta,
+      api: 'Profit & Loss\ntotal_sales · shipped-order basis (Order Line Items)'
+    };
+    const unitsSoldKpi = {
+      label: 'Units sold',
+      value: financialsPremiumLoading ? '—' : (hasRealPnlSales ? Math.round(realFinancialsPremium.totalUnitsSold).toLocaleString('en-GB') : '—'),
+      delta: financialsPremiumLoading ? '—' : (hasRealPnlSales ? (salesPartial ? 'Partial' : (unitsSoldDelta || '—')) : 'Not available'),
+      sub: financialsPremiumLoading ? 'Loading…' : ('P&L · ' + (hasRealPnlSales ? (salesPartial ? salesPartialLabel : ('vs ' + rangeSubLabel)) : salesUnavailSub)),
+      up: unitsSoldDelta ? prevUnitsPct >= 0 : true,
+      neutral: !hasRealPnlSales || salesPartial || !unitsSoldDelta,
+      api: 'Profit & Loss\ntotal_units_sold · shipped-order basis (Order Line Items)'
+    };
+    // ---- Live financials: real DataDoe "Settlements & P&L Components" for the selected seller ----
+    // Verified field: `total`, DataDoe's own "sum of all amounts in the row" — i.e. the actual
+    // settled amount per Finances event (ORDER/REFUND/OTHER), already inclusive of every Amazon
+    // fee, tax and refund. Summed across the range this is a real net-revenue figure, replacing
+    // the previous phase's honest "Not available" placeholder.
+    const financialsLoading = this.state.financialsLoading || sellersLoading;
+    const financialsError = this.state.financialsError;
+    const realFinancials = this.state.realFinancials;
+    const hasRealFinancials = !financialsLoading && !financialsError && !!realFinancials;
+    const netRevenueDelta = hasRealFinancials ? fmtDelta(realFinancials.netRevenueDeltaPct) : null;
+
+    const netRevenueKpi = {
+      label: 'Net revenue',
+      value: financialsLoading ? '—' : (hasRealFinancials ? (realFinancials.netRevenue >= 0 ? money(realFinancials.netRevenue) : neg(-realFinancials.netRevenue)) : '—'),
+      delta: financialsLoading ? '—' : (hasRealFinancials ? (netRevenueDelta || '—') : 'Not available'),
+      sub: financialsLoading ? 'Loading…' : (hasRealFinancials ? ('vs ' + rangeSubLabel) : (financialsError || 'Not available')),
+      up: netRevenueDelta ? realFinancials.netRevenueDeltaPct >= 0 : true,
+      neutral: !hasRealFinancials || !netRevenueDelta,
+      api: 'Settlements & P&L\ntotal · settled/cash basis'
+    };
+
+    // ---- Live financials (Premium): real DataDoe "Profit by Date" for the selected seller ----
+    // Verified fields: `profit` (DataDoe's own total sales − total_cost, where total_cost is
+    // settlement fees + COGS + ad spend) and `total_sales` (same source, shipped-order basis).
+    // Margin is profit ÷ this source's own total_sales, kept self-contained rather than divided
+    // by the Net revenue above — the two "sales" figures come from different reports (shipped
+    // vs settled basis) and mixing them would misstate the ratio. Premium/additive only: on any
+    // failure (including no Premium access) this shows an honest "Not available" rather than
+    // silently reusing the old manual-cost-derived mock figure, which is not verified live data.
+    // (financialsPremiumLoading/Error/realFinancialsPremium/hasRealProfit are declared earlier,
+    // above the Gross sales/Units sold KPIs, which now share this exact same source.)
+    const profitDelta = hasRealProfit ? fmtDelta(realFinancialsPremium.profitDeltaPct) : null;
+    const marginPtDelta = hasRealProfit && typeof realFinancialsPremium.previousMarginPct === 'number' && typeof realFinancialsPremium.marginPct === 'number'
+      ? realFinancialsPremium.marginPct - realFinancialsPremium.previousMarginPct
+      : null;
+
+    const netProfitKpi = {
+      label: 'Net profit',
+      value: financialsPremiumLoading ? '—' : (hasRealProfit ? (realFinancialsPremium.profit >= 0 ? money(realFinancialsPremium.profit) : neg(-realFinancialsPremium.profit)) : '—'),
+      delta: financialsPremiumLoading ? '—' : (hasRealProfit ? (profitDelta || '—') : 'Not available'),
+      sub: financialsPremiumLoading ? 'Loading…' : (hasRealProfit ? ('vs ' + rangeSubLabel) : (financialsPremiumError || 'Not available')),
+      up: profitDelta ? realFinancialsPremium.profitDeltaPct >= 0 : true,
+      neutral: !hasRealProfit || !profitDelta,
+      api: 'Profit & Loss\nnet_profit'
+    };
+    const netMarginKpi = {
+      label: 'Net margin',
+      value: financialsPremiumLoading ? '—' : (hasRealProfit && typeof realFinancialsPremium.marginPct === 'number' ? realFinancialsPremium.marginPct.toFixed(1) + '%' : '—'),
+      delta: financialsPremiumLoading ? '—' : (hasRealProfit && marginPtDelta !== null ? (marginPtDelta >= 0 ? '+' : '−') + Math.abs(marginPtDelta).toFixed(1) + 'pt' : '—'),
+      sub: financialsPremiumLoading ? 'Loading…' : (hasRealProfit ? 'of shipped sales (this period)' : (financialsPremiumError || 'Not available')),
+      up: marginPtDelta !== null ? marginPtDelta >= 0 : true,
+      neutral: !hasRealProfit || marginPtDelta === null,
+      api: 'Profit & Loss\nnet_profit ÷ sales (P&L basis)'
+    };
+
+    // ---- Live PPC: real DataDoe "Ad Performance by Campaign & Date" (SPONSORED_PRODUCTS only) ----
+    // Verified fields: ad_spend, ad_sales, ad_clicks, ad_impressions, ad_orders, ad_campaign_name.
+    // Filtered to SPONSORED_PRODUCTS because the section's own UI badge is hardcoded to that
+    // label. ACOS/CPC/Conversion are standard ratios of these verified fields (the same way
+    // Amazon Ads itself derives them), not fabricated. TACOS divides this endpoint's ad spend by
+    // the already-verified Gross sales from the Sales section above — two independently real
+    // numbers; TACOS is inherently defined against total account sales, not ad-attributed sales,
+    // so this is not the kind of cross-source mixing avoided for Net margin.
+    const ppcLoading = this.state.ppcLoading || sellersLoading;
+    const ppcError = this.state.ppcError;
+    const realPpc = this.state.realPpc;
+    const hasRealPpc = !ppcLoading && !ppcError && !!realPpc;
+    // Short label only — for the small delta/pill badges below (PPC stat cards, PPC Spend KPI,
+    // Cost Breakdown's PPC row). The full ppcError message is shown once, in the PPC Spend KPI's
+    // own sub-text, matching every other KPI's convention (short pill + one full detail line) —
+    // previously this same raw, unbounded-length error string was reused as the delta/pill value
+    // in 8 places at once, breaking the small pill badges' layout for any long upstream message.
+    const ppcStatusText = ppcLoading ? 'Loading…' : 'Not available';
+    const fmtPt = (delta) => (delta === null || delta === undefined) ? null : (delta >= 0 ? '+' : '−') + Math.abs(delta).toFixed(1) + 'pt';
+    const fmtMoneyDelta = (delta) => (delta === null || delta === undefined) ? null : (delta >= 0 ? '+£' : '−£') + Math.abs(delta).toFixed(2);
+    const ppcAdSpendDelta = hasRealPpc ? fmtDelta(realPpc.deltas.adSpendPct) : null;
+    const ppcAdSalesDelta = hasRealPpc ? fmtDelta(realPpc.deltas.adSalesPct) : null;
+    const ppcAcosDelta = hasRealPpc ? fmtPt(realPpc.deltas.acosPtDelta) : null;
+    const ppcCpcDelta = hasRealPpc ? fmtMoneyDelta(realPpc.deltas.cpcDelta) : null;
+    const ppcConvDelta = hasRealPpc ? fmtPt(realPpc.deltas.conversionRatePtDelta) : null;
+    // Excludes a leading-gap Gross Sales (see salesLeadingGap above) — PPC spend is a full-period
+    // total, so dividing it by a Gross Sales missing a large chunk at the start would overstate
+    // TACOS misleadingly. An ordinary trailing lag is left in, same reasoning as the cascade above.
+    // TACOS uses DataDoe's OWN native Profit & Loss definition: advertising_cost (incl-VAT, ALL
+    // sponsored types) ÷ Sales — NOT the PPC section's Sponsored-Products ex-VAT ad_spend. This is
+    // the same figure the DataDoe P&L report labels "TACOS" (July 31.94%, Aug 56.74%). ad_spend and
+    // advertising_cost are deliberately kept distinct: ad_spend drives the PPC section only.
+    const pnlAdvForTacos = (hasRealProfit && realFinancialsPremium.components && realFinancialsPremium.components.available && typeof realFinancialsPremium.components.advertising === 'number')
+      ? Math.abs(realFinancialsPremium.components.advertising) : null;
+    const tacos = (pnlAdvForTacos !== null && hasRealPnlSales && !salesLeadingGap && realFinancialsPremium.totalSales > 0)
+      ? (pnlAdvForTacos / realFinancialsPremium.totalSales) * 100
+      : null;
+
+    // ---- Sales/revenue/ad-spend trend chart: real daily series from the same three sources
+    // already fetched above (Sales & Traffic, Settlements & P&L, Ad Performance) — no extra
+    // DataDoe calls. Previously a fully static SVG path with hardcoded coordinates and hardcoded
+    // '1 Jul'..'22 Jul' axis labels regardless of the selected range; now built from the actual
+    // requested date window, clipped to the actual cached-data extent (see below), with any interior
+    // day that has no matching rows in a given source rendered as a real zero rather than omitted.
+    const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const fmtAxisDate = (dateStr) => {
+      const d = new Date(dateStr + 'T00:00:00Z');
+      return d.getUTCDate() + ' ' + MONTH_ABBR[d.getUTCMonth()];
+    };
+    // Clip the axis to the real data extent across the three daily series (Sales, Settlements, Ad),
+    // NOT the full requested window. Otherwise a partially-cached range would draw a flat £0 tail for
+    // the uncached dates — the exact "pretend the missing dates are zero" we must never do. Interior
+    // days with no rows stay a genuine zero; only the uncached leading/trailing edge is excluded.
+    const trendDataDates = [];
+    [(hasRealPnlSales ? realFinancialsPremium.daily : []), (hasRealFinancials ? realFinancials.daily : []), (hasRealPpc ? realPpc.daily : [])]
+      .forEach(arr => (arr || []).forEach(p => { if (p && p.date) trendDataDates.push(p.date); }));
+    const trendRangeFrom = trendDataDates.length ? trendDataDates.reduce((a, b) => (a < b ? a : b)) : null;
+    const trendRangeTo = trendDataDates.length ? trendDataDates.reduce((a, b) => (a > b ? a : b)) : null;
+    const trendDates = [];
+    if (trendRangeFrom && trendRangeTo) {
+      let cur = new Date(trendRangeFrom + 'T00:00:00Z');
+      const end = new Date(trendRangeTo + 'T00:00:00Z');
+      while (cur <= end) {
+        trendDates.push(cur.toISOString().slice(0, 10));
+        cur = new Date(cur.getTime() + 86400000);
+      }
+    }
+    const dailyGrossByDate = new Map((hasRealPnlSales ? realFinancialsPremium.daily : []).map(p => [p.date, p.totalSales]));
+    const dailyRevByDate = new Map((hasRealFinancials ? realFinancials.daily : []).map(p => [p.date, p.netRevenue]));
+    const dailyAdByDate = new Map((hasRealPpc ? realPpc.daily : []).map(p => [p.date, p.adSpend]));
+    const trendGrossSeries = trendDates.map(d => dailyGrossByDate.get(d) || 0);
+    const trendRevSeries = trendDates.map(d => dailyRevByDate.get(d) || 0);
+    const trendAdSeries = trendDates.map(d => dailyAdByDate.get(d) || 0);
+    const hasTrendData = trendDates.length > 0 && (hasRealPnlSales || hasRealFinancials || hasRealPpc);
+
+    // Net revenue is a real settlement-basis figure and can be genuinely negative on a given day
+    // (large refund/fee postings). Scale by actual [min, max] across gross+revenue (always
+    // including 0) rather than assuming a 0-to-max range, so a negative day stays inside the
+    // chart instead of driving the line off the top/bottom of its container.
+    const TREND_W = 760, TREND_TOP = 8, TREND_BOTTOM = 228;
+    const trendAllVals = trendGrossSeries.concat(trendRevSeries, [0]);
+    const trendMaxVal = Math.max(...trendAllVals);
+    const trendMinVal = Math.min(...trendAllVals);
+    const trendRange = Math.max(1, trendMaxVal - trendMinVal);
+    const scaleTrendY = (v) => TREND_BOTTOM - ((v - trendMinVal) / trendRange) * (TREND_BOTTOM - TREND_TOP);
+    const seriesToPoints = (values) => {
+      const n = values.length;
+      if (n === 0) return [];
+      if (n === 1) {
+        const y = scaleTrendY(values[0]);
+        return [[0, y], [TREND_W, y]];
+      }
+      return values.map((v, i) => [i * (TREND_W / (n - 1)), scaleTrendY(v)]);
+    };
+    const pointsToPath = (pts) => pts.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+    const grossPoints = seriesToPoints(trendGrossSeries);
+    const revPoints = seriesToPoints(trendRevSeries);
+    const adPoints = seriesToPoints(trendAdSeries);
+    const trendGrossPath = hasTrendData ? pointsToPath(grossPoints) : '';
+    const trendRevPath = hasTrendData ? pointsToPath(revPoints) : '';
+    const trendAdPath = hasTrendData ? pointsToPath(adPoints) : '';
+    const trendZeroY = scaleTrendY(0);
+    const trendAreaPath = hasTrendData && revPoints.length
+      ? pointsToPath(revPoints) + ' L' + TREND_W + ',' + trendZeroY.toFixed(1) + ' L0,' + trendZeroY.toFixed(1) + ' Z'
+      : '';
+
+    const trendAxisIdx = trendDates.length <= 1 ? [0, 0, 0, 0] : [
+      0,
+      Math.round((trendDates.length - 1) * 0.25),
+      Math.round((trendDates.length - 1) * 0.5),
+      Math.round((trendDates.length - 1) * 0.75)
+    ];
+    const trendX0 = hasTrendData ? fmtAxisDate(trendDates[trendAxisIdx[0]]) : '—';
+    const trendX1 = hasTrendData ? fmtAxisDate(trendDates[trendAxisIdx[1]]) : '—';
+    const trendX2 = hasTrendData ? fmtAxisDate(trendDates[trendAxisIdx[2]]) : '—';
+    const trendX3 = hasTrendData ? fmtAxisDate(trendDates[trendAxisIdx[3]]) : '—';
+
+    const ppc = [
+      { k: 'Ad spend', v: hasRealPpc ? money(realPpc.totals.adSpend) : '—', d: hasRealPpc ? (ppcAdSpendDelta || '—') : ppcStatusText, col: '#141821', bad: true },
+      { k: 'Ad sales', v: hasRealPpc ? money(realPpc.totals.adSales) : '—', d: hasRealPpc ? (ppcAdSalesDelta || '—') : ppcStatusText, col: '#141821', bad: false },
+      { k: 'ACOS', v: (hasRealPpc && typeof realPpc.derived.acos === 'number') ? realPpc.derived.acos.toFixed(1) + '%' : '—', d: hasRealPpc ? (ppcAcosDelta || '—') : ppcStatusText, col: '#C0342A', bad: true },
+      { k: 'TACOS', v: tacos !== null ? tacos.toFixed(1) + '%' : '—', d: (hasRealPpc && hasRealPnlSales) ? '—' : ppcStatusText, col: '#C0342A', bad: true },
+      { k: 'CPC', v: (hasRealPpc && typeof realPpc.derived.cpc === 'number') ? '£' + realPpc.derived.cpc.toFixed(2) : '—', d: hasRealPpc ? (ppcCpcDelta || '—') : ppcStatusText, col: '#141821', bad: true },
+      { k: 'Conversion', v: (hasRealPpc && typeof realPpc.derived.conversionRate === 'number') ? realPpc.derived.conversionRate.toFixed(1) + '%' : '—', d: hasRealPpc ? (ppcConvDelta || '—') : ppcStatusText, col: '#141821', bad: true }
+    ].map(a => ({ ...a, dCol: a.bad ? '#C0342A' : '#0E7C4A' }));
+
+    const acosSeverityColor = (acos) => {
+      if (acos === null || acos === undefined) return '#8A919F';
+      if (acos > 40) return '#C0342A';
+      if (acos > 20) return '#B4820A';
+      return '#0E7C4A';
+    };
+    const campaigns = hasRealPpc
+      ? realPpc.campaigns.map(c => ({
+          name: c.name,
+          spend: money(c.spend),
+          sales: money(c.sales),
+          clicks: typeof c.clicks === 'number' ? c.clicks.toLocaleString('en-GB') : '',
+          orders: typeof c.orders === 'number' ? c.orders.toLocaleString('en-GB') : '',
+          acos: typeof c.acos === 'number' ? c.acos.toFixed(1) + '%' : '—',
+          col: acosSeverityColor(c.acos)
+        }))
+      : [];
+    const campaignCount = campaigns.length;
+    const campaignCountLabel = hasRealPpc ? (campaignCount + ' active') : '';
+
+    const ppcSpendKpi = {
+      label: 'PPC spend',
+      value: hasRealPpc ? money(realPpc.totals.adSpend) : '—',
+      delta: hasRealPpc ? (ppcAdSpendDelta || '—') : ppcStatusText,
+      sub: hasRealPpc ? (tacos !== null ? 'TACOS ' + tacos.toFixed(1) + '%' : ('vs ' + rangeSubLabel)) : (ppcError || 'Not available'),
+      up: ppcAdSpendDelta ? realPpc.deltas.adSpendPct < 0 : true,
+      neutral: !hasRealPpc || !ppcAdSpendDelta,
+      api: 'PPC Campaigns\nad_spend · ex-VAT · 14-day attribution'
+    };
+
+    const kpis = [
+      grossSalesKpi,
+      unitsSoldKpi,
+      netRevenueKpi,
+      ppcSpendKpi,
+      netProfitKpi,
+      netMarginKpi
+    ].map(k => ({ ...k, dBg: k.neutral ? '#F1F3F7' : (k.up ? '#E8F7EF' : '#FDECEA'), dCol: k.neutral ? '#8A919F' : (k.up ? '#0E7C4A' : '#C0342A') }));
+
+    // ---- Live Cost Breakdown: real DataDoe data for "Where the money went" ----
+    // Gross sales reuses the already-verified Sales KPI total (Sales & Traffic by ASIN & Date).
+    // PPC ad spend reuses the already-verified PPC KPI total (Ad Performance by Campaign & Date).
+    // Fee/refund/promotion categories come from financials-summary's feeBreakdown (Settlements &
+    // P&L Components — see backend comment for exactly which columns feed each category and why;
+    // signs/aggregation were verified against real ORDER/REFUND/OTHER settlement rows before
+    // implementing, not assumed). Cost of goods / Inbound freight & duty remain the existing
+    // manual Cost Inputs feature, unchanged. Net profit / Net margin reuse the authoritative
+    // Premium Profit-by-Date KPI values directly (realFinancialsPremium) rather than being
+    // recomputed from the components above — those components come from different bases (Sales &
+    // Traffic vs Settlements vs Profit-by-Date all define "sales" slightly differently), so this
+    // cascade is deliberately NOT force-reconciled to sum exactly to that authoritative figure.
+    // Any component whose source hasn't loaded shows "—" (amt: null) rather than a guess.
+    const hasRealFeeBreakdown = hasRealFinancials && !!realFinancials.feeBreakdown;
+    const feeBreakdown = hasRealFeeBreakdown ? realFinancials.feeBreakdown : null;
+    const feeBreakdownDelta = hasRealFeeBreakdown ? realFinancials.feeBreakdownDeltaPct : null;
+    const fmtCostDeltaPct = (pct) => (typeof pct !== 'number') ? null : (pct >= 0 ? '+' : '−') + Math.abs(pct).toFixed(1) + '%';
+
+    // A LEADING-gap-shrunk Gross Sales/units figure (see salesLeadingGap above) must never be fed
+    // into this cascade: every other line here (referral fee, FBA fees, PPC spend, ...) is a
+    // FULL-period total from a different source (Settlements/Ad Performance), so dividing/
+    // subtracting against a Gross Sales missing an arbitrarily large chunk at the start would mix
+    // two very different date spans into one misleading number. An ordinary TRAILING lag (routine
+    // sync delay, already the norm everywhere else on this page) is left feeding the cascade as
+    // before — the mismatch there is at most a day or two, not a meaningfully different period.
+    // Treated the same as "not loaded" — the existing honest "needs Gross sales" fallback below
+    // already covers this, no new UI state required.
+    const realG = (hasRealPnlSales && !salesLeadingGap) ? realFinancialsPremium.totalSales : null;
+    const realUnitsForCosts = (hasRealPnlSales && !salesLeadingGap) ? realFinancialsPremium.totalUnitsSold : null;
+    const gForMath = (realG && realG > 0) ? realG : 1;
+    const unitsForMath = (realUnitsForCosts && realUnitsForCosts > 0) ? realUnitsForCosts : 1;
+    // gForMath/unitsForMath fall back to 1 purely so chart-height math never divides by zero —
+    // that fallback must NOT leak into displayed percentages/per-unit text (it would otherwise
+    // show something like "7392080%" for Cost of goods when Gross sales itself failed to load,
+    // or a real-but-zero period, e.g. "Today" before any sales — same unsafe fallback either way).
+    // Text output requires a real, positive basis (realG/realUnitsForCosts), same condition gForMath itself uses.
+    const hasPositiveGross = !!(realG && realG > 0);
+    const pctOf = n => (n === null || n === undefined || !hasPositiveGross) ? '—' : (n / gForMath * 100).toFixed(1) + '%';
+    const perUnit = n => {
+      if (n === null || n === undefined || realUnitsForCosts === null) return '—';
+      const v = n / unitsForMath;
+      return v >= 0 ? '£' + v.toFixed(2) : '−£' + Math.abs(v).toFixed(2);
+    };
+
+    // Delta stays a short label even on failure — this is a narrow table column, not a detail
+    // area. The full financialsError message is already shown once, in the Net Revenue KPI's
+    // own sub-text above; repeating the full raw message across every one of these 8 rows would
+    // overflow the column (same class of issue fixed for ppcStatusText above).
+    const feeCostItem = (label, key, col, src, bad) => ({
+      label,
+      amt: hasRealFeeBreakdown ? Math.abs(feeBreakdown[key]) : null,
+      col, src, bad,
+      // Δ vs prior column: when the prior period isn't synced locally the comparison genuinely
+      // can't be computed — render a blank cell (never a fabricated value and never a "Not
+      // available" label on an investor-facing table). Real deltas still show wherever the prior
+      // period IS covered (e.g. an August range whose prior July window is fully synced).
+      delta: hasRealFeeBreakdown ? (fmtCostDeltaPct(feeBreakdownDelta[key]) || '') : ''
+    });
+
+    // ---- Sales -> Net Profit cascade, rebuilt on ONE consistent DataDoe Profit & Loss accounting
+    // basis (approved 2026-09-02). Every line is a genuine P&L component and the cascade reconciles
+    // to P&L net_profit for the complete period (Sales + advertising_cost + amazon_fees + refund_cost
+    // + fba_shipping_chargeback + lost_damaged = net_profit). PPC ad_spend (Sponsored-Products,
+    // ex-VAT) and the Settlements settled-basis fee lines are DELIBERATELY EXCLUDED from this
+    // financial bridge: ad_spend is NOT advertising_cost, and Settlements is a different (settled/
+    // cash) accounting basis. Manual Cost-of-goods/Inbound-freight are also excluded — they are the
+    // seller's own post-P&L costs, not part of DataDoe's Sales->net_profit reconciliation.
+    // `v` is the SIGNED component value (negative = cost reducing profit; positive = credit adding
+    // it back, e.g. a positive amazon_fees fee-credit month), so credits are handled correctly.
+    const plComp = (hasRealProfit && realFinancialsPremium.components && realFinancialsPremium.components.available)
+      ? realFinancialsPremium.components : null;
+    const COSTS = plComp ? [
+      { label: 'Advertising cost', v: plComp.advertising, col: '#E8A13A', src: 'Profit & Loss · advertising_cost (incl-VAT · all sponsored ad types)' },
+      { label: 'Amazon fees', v: plComp.amazonFees, col: '#6C74E0', src: 'Profit & Loss · amazon_fees' },
+      { label: 'Refund cost', v: plComp.refundCost, col: '#E0705A', src: 'Profit & Loss · refund_cost' },
+      { label: 'FBA shipping chargeback', v: plComp.fbaChargeback, col: '#A0A6F5', src: 'Profit & Loss · fba_shipping_chargeback' },
+      { label: 'Lost/damaged', v: plComp.lostDamaged, col: '#0E7C4A', src: 'Profit & Loss · lost_damaged' },
+    ] : [];
+    // Signed £ label + colour for a cascade line: cost (v<0) shows red "−£x"; credit (v>=0) green "£x".
+    const cascAmt = (v) => (v === null || v === undefined) ? '—' : (v >= 0 ? money(v) : neg(-v));
+    const cascCol = (v) => (v === null || v === undefined) ? '#8A919F' : (v >= 0 ? '#0E7C4A' : '#C0342A');
+
+    const hasRealNetProfit = hasRealProfit;
+    const realNetProfitVal = hasRealNetProfit ? realFinancialsPremium.profit : null;
+    const realNetMarginVal = (hasRealNetProfit && typeof realFinancialsPremium.marginPct === 'number') ? realFinancialsPremium.marginPct : null;
+
+    // Breakdown view toggle (state.bkView): 'period' = period-total £, 'unit' = £/unit. Defined here
+    // (before BOTH the waterfall chart and the detail table) so both respond to the control — the
+    // toggle is labelled over the whole Breakdown section, so the chart must switch too, not only the
+    // table. perUnitNeg formats a cost's per-unit magnitude with a leading minus but collapses to a
+    // bare "—" when units are unavailable (never a misleading "−—").
+    const isUnit = this.state.bkView === 'unit';
+    const perUnitNeg = (n) => { const s = perUnit(n); return s === '—' ? '—' : '−' + s; };
+
+    const costBars = COSTS.slice().sort((a, b) => Math.abs(b.v ?? 0) - Math.abs(a.v ?? 0)).slice(0, 7).map(c => ({
+      label: c.label, amt: cascAmt(c.v),
+      pct: (c.v === null || c.v === undefined || !hasPositiveGross) ? '—' : (c.v / gForMath * 100).toFixed(1) + '%',
+      w: (c.v === null || c.v === undefined || !hasPositiveGross) ? '0%' : Math.min(100, Math.abs(c.v) / gForMath * 100 * 2.9).toFixed(1) + '%', col: c.col
+    }));
+
+    // Bridge cards, not cascading bars: Sales and Net profit are the two anchors, scaled honestly as a
+    // literal % of Sales (0-100, no boost) so their bar widths are a truthful read of "how big is profit
+    // vs sales". Cost/adjustment lines are visually secondary and use the SAME boosted %-of-Sales scale
+    // already established one panel up in "Where the money went" (×2.9, floor 6%) so a cost that is a
+    // genuinely thin sliver of Sales still reads as a visible bar instead of disappearing — the exact
+    // £ amount (never fabricated) is what carries precision, the bar is only a supporting glance-read.
+    // Values/labels/signs are untouched from the original cascade — only how they're displayed changes.
+    const waterfallSpec = [
+      { label: 'Sales', v: gForMath, kind: 'sales', textAmt: realG === null ? '—' : (isUnit ? perUnit(realG) : money(realG)) },
+      ...COSTS,
+      { label: 'Net profit', v: realNetProfitVal ?? 0, kind: 'profit', textAmt: realNetProfitVal === null ? '—' : (isUnit ? perUnit(realNetProfitVal) : (realNetProfitVal >= 0 ? money(realNetProfitVal) : neg(-realNetProfitVal))) }
+    ];
+    const netMarginText = realNetMarginVal === null ? '—' : realNetMarginVal.toFixed(1) + '%';
+    // Every card shares the same 4-slot vertical skeleton (label / amount / sub-line / bar) so all
+    // seven end up the exact same auto height with amount and bar landing at identical y-positions —
+    // the sub-line is always rendered (never sc-if'd away) and just visibility:hidden on the 6 cards
+    // that have no margin context, instead of only existing on the Net profit card.
+    const waterfall = waterfallSpec.map((sp, i) => {
+      if (sp.kind === 'sales' || sp.kind === 'profit') {
+        const isProfit = sp.kind === 'profit';
+        const anchorCol = isProfit ? (sp.v >= 0 ? '#0E7C4A' : '#C0342A') : '#141821';
+        const barPct = (!hasPositiveGross ? 0 : Math.max(0, Math.min(100, Math.abs(sp.v) / gForMath * 100))).toFixed(1) + '%';
+        return {
+          label: sp.label, amt: sp.textAmt, anchor: true, first: i === 0, arrow: i > 0,
+          amtCol: anchorCol, amtSize: '18px', amtWeight: '700', labCol: '#5B6373', labSize: '10.5px',
+          basis: '124px', grow: '1.1',
+          chipBg: isProfit ? '#F4FAF6' : '#F7F8FB', chipBorder: isProfit ? '1px solid #CFE9DA' : '1px solid #E9ECF2',
+          subText: isProfit ? (netMarginText === '—' ? '—' : netMarginText + ' margin') : ' ',
+          subVis: isProfit ? 'visible' : 'hidden',
+          barTrack: '#E9ECF2', barCol: anchorCol, barPct
+        };
+      }
+      const v = sp.v ?? 0;            // SIGNED P&L component: cost (<0) reduces profit, credit (>0) adds it back
+      const barPct = (!hasPositiveGross ? 0 : Math.max(6, Math.min(100, Math.abs(v) / gForMath * 100 * 2.9))).toFixed(1) + '%';
+      const isLong = sp.label.length > 18;  // only 'FBA shipping chargeback' — give it room instead of truncating
+      return {
+        label: sp.label,
+        amt: (sp.v === null || sp.v === undefined) ? '—' : (isUnit ? (v >= 0 ? perUnit(v) : perUnitNeg(-v)) : cascAmt(v)),
+        anchor: false, first: false, arrow: true,
+        amtCol: cascCol(sp.v), amtSize: '13px', amtWeight: '600', labCol: '#8A919F', labSize: isLong ? '8.75px' : '9.5px',
+        basis: isLong ? '124px' : '100px', grow: '1',
+        chipBg: '#FBFBFD', chipBorder: '1px solid #EDEFF4', subText: ' ', subVis: 'hidden',
+        barTrack: '#F1F3F7', barCol: sp.col, barPct
+      };
+    });
+
+    const bkViews = [{ id: 'period', label: 'Period total' }, { id: 'unit', label: 'Per unit' }].map(v => {
+      const on = this.state.bkView === v.id;
+      return { label: v.label, go: () => this.setState({ bkView: v.id }), bg: on ? '#fff' : 'transparent', col: on ? '#141821' : '#6B7280', sh: on ? '0 1px 2px rgba(16,24,40,.10)' : 'none' };
+    });
+
+    const costRows = [
+      {
+        label: 'Sales', amt: isUnit ? perUnit(realG) : (realG === null ? '—' : money(realG)), pct: '100%',
+        unit: perUnit(realG), delta: hasRealPnlSales ? (grossSalesDelta || '') : '',
+        dCol: (!hasRealPnlSales || !grossSalesDelta) ? '#8A919F' : (prevSalesPct >= 0 ? '#0E7C4A' : '#C0342A'),
+        dot: '#141821', src: 'Profit & Loss · total_sales (shipped basis)', weight: 700, rowBg: '#FAFBFD', amtCol: '#141821'
+      },
+      ...COSTS.map(c => ({
+        label: c.label,
+        amt: (c.v === null || c.v === undefined) ? '—' : (isUnit ? (c.v >= 0 ? perUnit(c.v) : perUnitNeg(-c.v)) : cascAmt(c.v)),
+        pct: (c.v === null || c.v === undefined || !hasPositiveGross) ? '—' : (c.v / gForMath * 100).toFixed(1) + '%',
+        unit: (c.v === null || c.v === undefined) ? '—' : (c.v >= 0 ? perUnit(c.v) : perUnitNeg(-c.v)),
+        delta: '', dCol: '#8A919F',
+        dot: c.col, src: c.src, weight: 500, rowBg: '#fff', amtCol: cascCol(c.v)
+      })),
+      {
+        label: 'Net profit',
+        amt: isUnit ? perUnit(realNetProfitVal) : (realNetProfitVal === null ? '—' : (realNetProfitVal >= 0 ? money(realNetProfitVal) : neg(-realNetProfitVal))),
+        pct: pctOf(realNetProfitVal), unit: perUnit(realNetProfitVal),
+        delta: hasRealNetProfit ? (profitDelta || '') : '',
+        dCol: '#0E7C4A', dot: '#0E7C4A', src: 'Profit & Loss · net_profit', weight: 700, rowBg: '#F6FBF8', amtCol: realNetProfitVal === null ? '#8A919F' : (realNetProfitVal >= 0 ? '#0E7C4A' : '#C0342A')
+      }
+    ];
+
+    // ---- DataDoe P&L report line-item components (additive card) ----
+    // These are DataDoe's OWN Profit & Loss report values, served verbatim from the premium
+    // endpoint's `components` (same source/definition/basis as Net Profit). Rendered only when every
+    // covered day has component data (components.available); otherwise "Not available" — never a
+    // fabricated £0. Identity holds: Sales + Advertising + Amazon fees + Refund cost + FBA chargeback
+    // + Lost/damaged = Net profit. This is distinct from the Settlements-sourced "Where the money
+    // went" breakdown above (different DataDoe report / basis) and does not alter it.
+    const pnlC = (hasRealProfit && realFinancialsPremium.components && realFinancialsPremium.components.available)
+      ? realFinancialsPremium.components : null;
+    const pnlSigned = (v) => (typeof v !== 'number') ? '—' : (v >= 0 ? money(v) : neg(-v));
+    const pnlSignedCol = (v) => (typeof v !== 'number') ? '#8A919F' : (v >= 0 ? '#0E7C4A' : '#C0342A');
+    const pnlDef = [
+      { key: 'sales', label: 'Sales', src: 'P&L · sales', dot: '#141821', header: true },
+      { key: 'advertising', label: 'Advertising', src: 'P&L · advertising_cost (incl-VAT)', dot: '#E8A13A' },
+      { key: 'amazonFees', label: 'Amazon fees', src: 'P&L · amazon_fees', dot: '#6C74E0' },
+      { key: 'refundCost', label: 'Refund cost', src: 'P&L · refund_cost', dot: '#E0705A' },
+      { key: 'fbaChargeback', label: 'FBA chargeback', src: 'P&L · fba_shipping_chargeback', dot: '#A0A6F5' },
+      { key: 'lostDamaged', label: 'Lost/damaged by Amazon', src: 'P&L · lost_damaged', dot: '#0E7C4A' },
+    ];
+    const pnlRows = pnlDef.map(d => {
+      const v = pnlC ? pnlC[d.key] : null;
+      return {
+        label: d.label, src: d.src, dot: d.dot,
+        amt: pnlC ? (d.header ? money(v) : pnlSigned(v)) : '—',
+        amtCol: !pnlC ? '#8A919F' : (d.header ? '#141821' : pnlSignedCol(v)),
+        weight: d.header ? 700 : 500, rowBg: d.header ? '#FAFBFD' : '#fff'
+      };
+    });
+    pnlRows.push({
+      label: 'Net profit', src: 'P&L · net_profit', dot: '#0E7C4A',
+      amt: pnlC ? pnlSigned(pnlC.netProfit) : (realNetProfitVal === null ? '—' : (realNetProfitVal >= 0 ? money(realNetProfitVal) : neg(-realNetProfitVal))),
+      amtCol: pnlC ? pnlSignedCol(pnlC.netProfit) : '#8A919F', weight: 700, rowBg: '#F6FBF8'
+    });
+    const pnlAvailable = !!pnlC;
+    const pnlNote = pnlC
+      ? 'Profit & Loss report · exact line items · Sales + Advertising + Amazon fees + Refund cost + FBA chargeback + Lost/damaged = Net profit'
+      : (financialsPremiumLoading ? 'Loading…' : 'Not available for this period');
+
+    // ---- Live products: real DataDoe catalog data for the selected seller ----
+    // Verified fields only (Product Catalog by ASIN source): child_asin, product_name,
+    // product_node_category_name/product_root_category_name, product_node_best_selling_rank/
+    // product_root_best_selling_rank, product_image_url. Price/units/Buy Box/stock/per-unit
+    // costs are NOT returned by this endpoint, so they render as neutral "Not available"
+    // placeholders rather than reusing the old mock numbers against a real product identity.
+    const realProducts = this.state.realProducts;
+    const productsLoading = this.state.productsLoading || sellersLoading;
+    const productsError = this.state.productsError;
+
+    // ---- Product-card price / units / Buy Box / stock: real data already fetched above for
+    // other sections, cross-referenced here by ASIN (no extra DataDoe calls). Price comes from
+    // the Listings source's listing_price_value (verified live: populated on 19/20 real rows for
+    // this account). Units/Buy Box reuse realByAsinAll (Sales & Traffic), same data already
+    // powering the Cost Inputs table. Stock reuses realInventory.rows (FBA Inventory by ASIN &
+    // Country), same data already powering the account-level Units on hand KPI. A card whose
+    // ASIN has no matching row in one of these sources keeps the honest "Not available"/"—" for
+    // just that field, same convention as everywhere else on this page.
+    const listingByAsinForCards = new Map((this.state.realListings || []).map((r) => [r.child_asin, r]));
+    const inventoryByAsinForCards = new Map(
+      ((this.state.realInventory && this.state.realInventory.rows) || []).map((r) => [r.child_asin, r])
+    );
+    const byAsinLookup = new Map(realByAsinAll.map((r) => [r.asin, r]));
+
+    // ---- Product-card "Per unit sold" cost breakdown: real per-ASIN referral/FBA fees from the
+    // financials-summary endpoint's feeBreakdownByAsin (Settlements & P&L Components, grouped by
+    // child_asin server-side — verified live: child_asin populated on 170/178 real rows). Divided
+    // by that ASIN's real units (realByAsinAll, same source as above) to get a genuine per-unit
+    // figure. Categories with no real value for that ASIN in the period are omitted rather than
+    // shown as zero.
+    const feeBreakdownByAsin = hasRealFinancials ? realFinancials.feeBreakdownByAsin || {} : {};
+    const CARD_FEE_LABELS = [
+      { key: 'referralFee', label: 'Referral fee', col: '#4A57E8' },
+      { key: 'fbaFulfilmentFee', label: 'FBA fulfilment', col: '#6C77EE' },
+      { key: 'fbaStorageFee', label: 'FBA storage', col: '#8E97F3' },
+      { key: 'otherAmazonFees', label: 'Other Amazon fees', col: '#C3C8FA' }
+    ];
+
+    // ---- Live per-SKU financials: real DataDoe "Profit by SKU & Date" (Premium) ----
+    // Verified fields, summed per child_asin over the selected range: total_sales (Revenue),
+    // profit (DataDoe's own net-profit calc, used for Net margin = profit ÷ total_sales), and
+    // ad_spend. ACOS is a period-level application of the source's own ad_spend ÷ ad_sales
+    // definition. Matched to each product card by ASIN; a card whose ASIN has no rows in the
+    // selected range (e.g. no sales/ad activity) keeps the honest "—" placeholder rather than
+    // showing a zero, which would misrepresent "no data" as "zero performance".
+    const skuProfitLoading = this.state.skuProfitLoading || sellersLoading;
+    const skuProfitError = this.state.skuProfitError;
+    const realSkuProfit = this.state.realSkuProfit;
+    const hasRealSkuProfit = !skuProfitLoading && !skuProfitError && !!realSkuProfit;
+    const skuProfitByAsin = new Map();
+    if (hasRealSkuProfit) {
+      for (const p of realSkuProfit.products) skuProfitByAsin.set(p.asin, p);
+    }
+    const marginColor = (pct) => (pct === null || pct === undefined) ? '#8A919F' : (pct >= 0 ? '#0E7C4A' : '#C0342A');
+
+    // Live Products is driven by the seller's ACTIVE listings (the master table): the backend
+    // /live-products endpoint returns exactly one row per active listing, LEFT-JOINing catalog
+    // image, current inventory, per-SKU profit (Revenue / Margin / ACOS), buy-box and order-line
+    // units, all for the SELECTED month. A listing is never dropped for missing joins; a field with
+    // no authoritative record renders an explicit unavailable state (never a fabricated 0). Row
+    // ordering (revenue desc) is decided server-side; the list is shown verbatim so the rendered
+    // count is always the true active-listing count.
+    const liveProductsLoading = this.state.liveProductsLoading || sellersLoading;
+    const liveProductsError = this.state.liveProductsError;
+    const realLiveProducts = this.state.realLiveProducts;
+    const hasRealLiveProducts = !liveProductsLoading && !liveProductsError && !!realLiveProducts && Array.isArray(realLiveProducts.products);
+    const MUTED_UNAVAIL = '#AEB4C0';
+    const products = (hasRealLiveProducts ? realLiveProducts.products : []).map((p, i) => {
+      const acosVal = (typeof p.acos === 'number') ? p.acos : null;
+      const marginVal = (typeof p.margin === 'number') ? p.margin : null;
+      const stockAvail = (typeof p.stock === 'number');
+      const unitsAvail = (typeof p.units === 'number');
+      const revAvail = (typeof p.revenue === 'number');
+      const bbAvail = (typeof p.buyBox === 'number');
+      // The ACOS cell doubles as the advertising-state indicator: a real ACOS where PPC spend has
+      // attributed sales; "No ad sales" where the product was advertised but the spend attributed
+      // no sales this period; "No campaign" where there is no advertising record at all.
+      const acosText = p.hasPpc
+        ? (acosVal !== null ? acosVal.toFixed(1) + '%' : 'No ad sales')
+        : 'No campaign';
+      const acosTitle = p.hasPpc
+        ? (acosVal !== null ? 'ACOS ' + acosVal.toFixed(1) + '%' : 'Advertised - no attributed ad sales this period')
+        : 'No campaign data - not currently advertised';
+      return {
+        asin: p.childAsin || '',
+        sku: p.sku || '',
+        hasName: !!p.name,
+        name: p.name || '',
+        unitsV: unitsAvail ? Math.round(p.units).toLocaleString('en-GB') : 'Unavailable',
+        unitsCol: unitsAvail ? '#5B6373' : MUTED_UNAVAIL,
+        revenueV: revAvail ? money(p.revenue) : 'Unavailable',
+        revenueCol: revAvail ? '#141821' : MUTED_UNAVAIL,
+        marginV: marginVal !== null ? marginVal.toFixed(1) + '%' : 'Unavailable',
+        marginCol: marginVal !== null ? marginColor(marginVal) : MUTED_UNAVAIL,
+        adSpendV: (p.hasPpc && typeof p.adSpend === 'number') ? money(p.adSpend) : '',
+        acosV: acosText,
+        acosTitle: acosTitle,
+        acosCol: (p.hasPpc && acosVal !== null) ? acosSeverityColor(acosVal) : MUTED_UNAVAIL,
+        campDot: p.hasPpc ? '#0E7C4A' : '#C9CFDA',
+        campText: p.hasPpc ? 'Advertised' : 'Not currently advertised',
+        bbV: bbAvail ? p.buyBox.toFixed(1) + '%' : 'Unavailable',
+        bbCol: bbAvail ? '#5B6373' : MUTED_UNAVAIL,
+        slot: 'live-prod-' + (i + 1), ph: ' ', imageUrl: p.imageUrl || '',
+        stockV: stockAvail
+          ? (p.stock > 0 ? Math.round(p.stock).toLocaleString('en-GB') + ' in stock' : 'Out of stock')
+          : 'Unavailable',
+        stockDot: stockAvail ? (p.stock > 0 ? '#0E7C4A' : '#C0342A') : 'transparent',
+        stockCol: stockAvail ? '#5B6373' : MUTED_UNAVAIL,
+        rowBg: '#fff'
+      };
+    });
+    const hasProducts = hasRealLiveProducts && products.length > 0;
+    const productsStatusMessage = liveProductsLoading
+      ? 'Loading products...'
+      : liveProductsError
+        ? 'Could not load products: ' + liveProductsError
+        : !this.state.selectedSellerId
+          ? 'No seller selected'
+          : products.length === 0
+            ? 'No active listings for this seller'
+            : '';
+    const productsStatusColor = liveProductsError ? '#C0342A' : '#6B7280';
+    const productsCountLabel = hasProducts ? (products.length + ' active listing' + (products.length === 1 ? '' : 's')) : '';
+    // Compact always-visible summary for the collapsed Live products section: active count + existing
+    // authoritative image-coverage figure (no new metric — reuses realLiveProducts.coverage.image).
+    const liveImageCoverage = hasRealLiveProducts && realLiveProducts.coverage ? realLiveProducts.coverage.image : null;
+    const liveProductsSummaryLabel = hasProducts
+      ? (products.length + ' active products' + (liveImageCoverage != null ? (' · ' + liveImageCoverage + '/' + products.length + ' with images') : ''))
+      : '';
+
+    const landedAvg = totalRealUnits > 0 ? (cogsTotal + freightTotal) / totalRealUnits : 0;
+
+    // ---- Product listings: real DataDoe listings data for the selected seller ----
+    // Verified field: listing_status (only "Active" is honestly countable — the observed real
+    // values don't confirm "Suppressed"/"Stranded" as a status this field ever takes, and this
+    // Listings source has no Buy Box field at all). Buy Box win rate below instead reuses
+    // buybox_percentage from the Sales & Traffic by ASIN & Date source already fetched for
+    // Sales/Cost Inputs above (no extra DataDoe call) — verified live and populated (real values
+    // 0–100 observed) — averaged across the real ASINs with a value in the selected range.
+    const realListings = this.state.realListings || [];
+    const listingsLoading = this.state.listingsLoading || sellersLoading;
+    const listingsError = this.state.listingsError;
+    const listingsFetchedCount = realListings.length;
+    const listingsActiveCount = realListings.filter(r => r.listing_status === 'Active').length;
+    const listingsInactiveCount = realListings.filter(r => r.listing_status === 'Inactive').length;
+    const listingsIncompleteCount = realListings.filter(r => r.listing_status === 'Incomplete').length;
+    // The backend fetches this source with all:true (no skip/limit), so DataDoe returns every row
+    // it holds for this seller in one export — the loaded set IS the seller-wide catalogue, not a
+    // capped page. (Verified 2026-08-31: 766 rows returned for 100 previously-capped.)
+    const loadedSuffix = listingsLoading ? '' : ('of ' + listingsFetchedCount + ' total');
+    const buyboxValues = realByAsinAll.map(r => r.buyboxPct).filter(v => typeof v === 'number');
+    const avgBuyboxPct = buyboxValues.length ? buyboxValues.reduce((t, v) => t + v, 0) / buyboxValues.length : null;
+    const hasBuybox = hasRealSales && avgBuyboxPct !== null;
+    // Tiles now surface the real, locally-available listing_status breakdown (Active / Inactive /
+    // Incomplete) of the loaded page instead of the previous "Suppressed"/"Stranded" tiles, which
+    // this Listings source never populates (always "—") and so were dead UI. Buy Box (from Sales &
+    // Traffic buybox_percentage) is retained as the one genuinely-populated non-status metric.
+    const listings = [
+      { k: 'Active', v: listingsLoading ? '—' : String(listingsActiveCount), sub: listingsLoading ? '' : loadedSuffix, col: '#0E7C4A' },
+      { k: 'Inactive', v: listingsLoading ? '—' : String(listingsInactiveCount), sub: listingsLoading ? '' : loadedSuffix, col: '#141821' },
+      { k: 'Incomplete', v: listingsLoading ? '—' : String(listingsIncompleteCount), sub: listingsLoading ? '' : loadedSuffix, col: '#B26A00' },
+      {
+        k: 'Buy Box win',
+        v: salesLoading ? '—' : (hasBuybox ? avgBuyboxPct.toFixed(1) + '%' : '—'),
+        sub: salesLoading ? 'Loading…' : (hasBuybox ? ('avg across ' + buyboxValues.length + ' ASINs') : (salesError || 'Not available')),
+        col: hasBuybox ? '#141821' : '#8A919F'
+      }
+    ];
+    // Full-catalogue fetch (all:true) — always complete once loaded without error, never partial.
+    const listingsPartial = false;
+    const listingsCoverageNote = (listingsLoading || listingsError || listingsFetchedCount === 0)
+      ? ''
+      : ('Complete — all ' + listingsFetchedCount + ' listings for this seller are loaded.');
+    const listingsStatusMessage = listingsError
+      ? ('Could not load listings: ' + listingsError)
+      : this.state.listingsNotSynced
+        ? 'Not available for this period.'
+        : '';
+    // Real Active-of-loaded ratio (listing_status is the only verified status field on this
+    // source — see comment above). Previously a hardcoded '94%' unrelated to the real counts
+    // shown in the panel below it.
+    // Factual "active listings ÷ loaded listings" ratio. Deliberately NOT labelled
+    // "healthy": neither DataDoe nor Amazon defines a listing-health threshold on the
+    // verified listing_status field, so a green "healthy" claim would be an invented
+    // business rule. Rendered as a neutral "X% active" statement instead.
+    const listingHealthPct = (listingsLoading || listingsError || listingsFetchedCount === 0)
+      ? '—'
+      : ('Complete · ' + listingsFetchedCount + ' listings');
+    // Compact always-visible status summary for the collapsed Product listings section (authoritative
+    // listing_status counts — no new metric derived).
+    const listingsSummaryLabel = (listingsLoading || listingsError || listingsFetchedCount === 0)
+      ? ''
+      : (listingsActiveCount + ' active · ' + listingsInactiveCount + ' inactive · ' + listingsIncompleteCount + ' incomplete');
+    // Status word alone (same derivation as listingHealthPct, minus the count) for the merged
+    // Product listings + Live products card badge — the count moves into the summary line instead.
+    const listingsStatusBadge = listingsLoading ? 'Loading…' : (listingsError ? 'Unavailable' : (listingsFetchedCount === 0 ? '—' : 'Complete'));
+    // Always-visible header summary for the merged card: authoritative total listings (Listings
+    // source) + authoritative active-product count (Live Products dataset). Two distinct numbers,
+    // never combined into one — 766 stays 766, 62 stays 62.
+    const productListingsCombinedSummary = (listingsLoading || listingsError || listingsFetchedCount === 0)
+      ? ''
+      : (listingsFetchedCount + ' listing' + (listingsFetchedCount === 1 ? '' : 's') + (hasProducts ? (' · ' + products.length + ' active product' + (products.length === 1 ? '' : 's')) : ''));
+
+    const listingIssues = [];
+    const hasListingIssues = listingIssues.length > 0;
+
+    // ---- Inventory: real DataDoe data for the selected seller ----
+    // Units on hand: dedicated non-premium "FBA Inventory by ASIN & Country" source
+    // (backend dedupes to the latest date per ASIN and sums quantity_for_local_fulfillment).
+    // Inbound: already-fetched Listings data (fba_quantity_inbound), no extra call.
+    // Reserved is real (fba_quantity_reserved) but there is no existing UI slot for it, so
+    // it is intentionally not surfaced here. Days of cover and restock/overstock alerts have
+    // no verified non-premium source, so they show an honest unavailable state.
+    const inventoryLoading = this.state.inventoryLoading || sellersLoading;
+    const inventoryError = this.state.inventoryError;
+    const realInventory = this.state.realInventory;
+    const unitsOnHandV = inventoryLoading
+      ? '—'
+      : (inventoryError || !realInventory) ? '—' : realInventory.unitsOnHand.toLocaleString('en-GB');
+    const unitsOnHandSub = inventoryLoading
+      ? 'Loading…'
+      : inventoryError ? 'Not available'
+        : (realInventory && realInventory.snapshotDate) ? ('FBA fulfillable · as of ' + realInventory.snapshotDate) : 'FBA fulfillable';
+
+    const inboundV = listingsLoading
+      ? '—'
+      : listingsError ? '—' : realListings.reduce((t, r) => t + (typeof r.fba_quantity_inbound === 'number' ? r.fba_quantity_inbound : 0), 0).toLocaleString('en-GB');
+    const inboundSub = listingsLoading ? 'Loading…' : listingsError ? 'Not available' : 'from connected listings';
+
+    // ---- Days of cover / alerts: Premium DataDoe "FBA Inventory Health" source ----
+    // Optional and additive — if this account ever loses Premium access, inventoryHealthError
+    // is set and these fall back to the same honest "Not available" state as before, with no
+    // effect on Units on hand / Inbound / Stock value above.
+    const inventoryHealthLoading = this.state.inventoryHealthLoading || sellersLoading;
+    const inventoryHealthError = this.state.inventoryHealthError;
+    const realInventoryHealth = this.state.realInventoryHealth;
+    const daysOfCoverInfo = realInventoryHealth && realInventoryHealth.daysOfCover;
+    const daysOfCoverV = inventoryHealthLoading
+      ? '—'
+      : (inventoryHealthError || !daysOfCoverInfo || typeof daysOfCoverInfo.value !== 'number')
+        ? '—'
+        : Math.round(daysOfCoverInfo.value) + 'd';
+    const daysOfCoverSub = inventoryHealthLoading
+      ? 'Loading…'
+      : inventoryHealthError ? 'Not available'
+        : (daysOfCoverInfo && typeof daysOfCoverInfo.value === 'number')
+          ? ('Weighted avg · ' + daysOfCoverInfo.asinCount + ' ASINs')
+          : 'Not available';
+
+    // Stock value = real Units on hand (FREE "FBA Inventory by ASIN & Country") × the entered
+    // landed cost average. Previously multiplied a leftover mock unit count (ONHAND) that had
+    // no relationship to the real inventory figure shown one row above it; the quantity side is
+    // now real, the £/unit side stays the existing manual cost-input average (label unchanged).
+    // totalRealUnits > 0 gate matches ciLanded above: landedAvg falls back to 0 purely so its
+    // own division never produces NaN (see landedAvg definition), not because the real average
+    // is zero. Without this gate, stockValueV would show a fabricated "£0k" whenever sales data
+    // hasn't finished loading yet (inventory resolves first in the load sequence) or during any
+    // genuinely zero-sales period, even though realInventory.unitsOnHand may be substantial.
+    const stockValueV = inventoryLoading
+      ? '—'
+      : (inventoryError || !realInventory || totalRealUnits <= 0) ? '—' : '£' + Math.round(realInventory.unitsOnHand * landedAvg / 1000) + 'k';
+
+    const inv = [
+      { k: 'Units on hand', v: unitsOnHandV, sub: unitsOnHandSub, col: '#141821' },
+      { k: 'Days of cover', v: daysOfCoverV, sub: daysOfCoverSub, col: daysOfCoverV === '—' ? '#8A919F' : '#141821' },
+      { k: 'Inbound', v: inboundV, sub: inboundSub, col: '#141821' },
+      { k: 'Stock value', v: stockValueV, sub: 'at entered landed cost', col: '#141821' }
+    ];
+
+    // ---- Inventory Health: evidence-based risks/opportunities for the 62 active listings ----
+    // Backed by /inventory-health-detailed (datadoe.inventoryhealth.ts). Every signal below is
+    // either (a) an authoritative Amazon-reported field, explicitly labelled as Amazon's own, or
+    // (b) a transparent dashboard-derived rule (documented threshold, never called an Amazon
+    // recommendation). A category with no supporting dataset renders "Unavailable", never 0/£0.
+    const ihLoading = this.state.inventoryHealthDetailedLoading || sellersLoading;
+    const ihError = this.state.inventoryHealthDetailedError;
+    const realIH = this.state.realInventoryHealthDetailed;
+    const hasIH = !ihLoading && !ihError && !!realIH && Array.isArray(realIH.products);
+    const ihProducts = hasIH ? realIH.products : [];
+    const ihCoverage = hasIH ? realIH.coverage : null;
+
+    const MUTED = '#8A919F';
+    const RISK_COL = '#C0342A';
+    const WARN_COL = '#B26A00';
+    const OPP_COL = '#2A35A8';
+
+    const ihKpis = hasIH ? [
+      { k: 'Stockout risk', v: String(ihCoverage.stockoutRisk), sub: ihCoverage.stockoutRisk > 0 ? 'products at risk of running out' : 'none currently', col: ihCoverage.stockoutRisk > 0 ? WARN_COL : '#141821' },
+      { k: 'Out of stock', v: String(ihCoverage.outOfStock), sub: ihCoverage.outOfStock > 0 ? 'products at zero sellable units' : 'none currently', col: ihCoverage.outOfStock > 0 ? RISK_COL : '#141821' },
+      { k: 'Stranded', v: 'Unavailable', sub: 'no authoritative stranded-inventory dataset', col: MUTED },
+      { k: 'Aged inventory', v: ihCoverage.agedInventory.datasetAvailable ? String(ihCoverage.agedInventory.flagged) : 'Unavailable', sub: ihCoverage.agedInventory.datasetAvailable ? '91+ days in an Amazon fulfilment centre' : 'no authoritative aged-inventory dataset', col: ihCoverage.agedInventory.flagged > 0 ? WARN_COL : '#141821' }
+    ] : [];
+
+    const ihImgSlot = (p, i) => 'inv-health-' + i + '-' + (p.childAsin || i);
+    const ihStockV = (p) => p.hasStock ? (p.stock > 0 ? p.stock.toLocaleString('en-GB') + ' in stock' : 'Out of stock') : 'Unavailable';
+    const ihUnitsV = (p) => p.hasUnitsSoldMonth ? p.unitsSoldMonth.toLocaleString('en-GB') + ' units sold' : 'Unavailable';
+    const ihRevV = (p) => p.hasRevenueMonth ? money(p.revenueMonth) + ' sales' : 'Unavailable';
+    const ihVelocityV = (p) => (p.salesVelocity != null) ? p.salesVelocity.toFixed(1) + ' units/day' : 'Unavailable';
+    const ihDaysCoverV = (p) => (p.daysOfCoverDerived != null) ? p.daysOfCoverDerived.toFixed(0) + 'd cover' : (p.hasStock && p.stock > 0 ? 'No recent sales' : '');
+    const ihBuyBoxV = (p) => p.hasBuyBoxMonth ? p.buyBoxMonth.toFixed(1) + '% Buy Box' : '';
+
+    // High priority: out-of-stock and high-demand/low-stock first (revenue-relevant), then
+    // generic stockout risk, ranked within each group by this-period revenue (most material
+    // first) — the same "most material leads" convention used elsewhere on this dashboard.
+    const HIGH_PRIORITY_ORDER = { 'out-of-stock': 0, 'high-demand-low-stock': 1, 'stockout-risk': 2 };
+    const ihHighPriorityAll = ihProducts
+      .filter(p => p.categories.some(c => c in HIGH_PRIORITY_ORDER))
+      .map((p, i) => {
+        const primary = p.categories.find(c => c in HIGH_PRIORITY_ORDER);
+        const label = primary === 'out-of-stock' ? 'Out of stock' : primary === 'high-demand-low-stock' ? 'High demand / low stock' : 'Stockout risk';
+        const labelCol = primary === 'out-of-stock' ? RISK_COL : WARN_COL;
+        return {
+          slot: ihImgSlot(p, i), ph: ' ', imageUrl: p.imageUrl || '',
+          hasName: !!p.name, name: p.name || '', asin: p.childAsin,
+          issueLabel: label, issueCol: labelCol,
+          stockV: ihStockV(p), unitsV: ihUnitsV(p), revenueV: ihRevV(p),
+          velocityV: ihVelocityV(p), daysCoverV: ihDaysCoverV(p), buyBoxV: ihBuyBoxV(p),
+          sortRev: p.revenueMonth || 0, sortOrder: HIGH_PRIORITY_ORDER[primary]
+        };
+      })
+      .sort((a, b) => (a.sortOrder - b.sortOrder) || (b.sortRev - a.sortRev));
+    const IH_HIGH_PRIORITY_LIMIT = 8;
+    const ihHighPriority = ihHighPriorityAll.slice(0, IH_HIGH_PRIORITY_LIMIT);
+    const ihHighPriorityMoreText = ihHighPriorityAll.length > ihHighPriority.length
+      ? ('+' + (ihHighPriorityAll.length - ihHighPriority.length) + ' more — ' + ihHighPriorityAll.length + ' products flagged in total')
+      : '';
+    const hasIhHighPriority = ihHighPriority.length > 0;
+    const noIhHighPriority = !hasIhHighPriority;
+    const ihHighPriorityEmptyText = ihLoading ? 'Loading inventory health…' : (ihError ? 'Inventory health unavailable for this period' : 'No high-priority inventory issues for this period.');
+
+    // Opportunities: Amazon's own restock recommendations (authoritative — "FBA Restock
+    // Recommendations"), plus aged-inventory units where the authoritative age buckets flag any.
+    // Amazon Recommended Removals is queried (dataset available) but currently empty for this
+    // account — shown as an honest "none currently", never as Unavailable or a fabricated card.
+    const ihRestockOpps = ihProducts
+      .filter(p => p.hasAmazonRestockRec)
+      .sort((a, b) => (b.amazonRestockQty || 0) - (a.amazonRestockQty || 0))
+      .map((p, i) => ({
+        slot: ihImgSlot(p, 'r' + i), ph: ' ', imageUrl: p.imageUrl || '',
+        hasName: !!p.name, name: p.name || '', asin: p.childAsin,
+        stockV: ihStockV(p),
+        qtyV: 'Amazon suggests +' + p.amazonRestockQty.toLocaleString('en-GB') + ' units',
+        dateV: p.amazonRestockShipDate ? ('by ' + p.amazonRestockShipDate) : ''
+      }));
+    const ihAgedOpps = ihProducts
+      .filter(p => p.categories.includes('aged-inventory'))
+      .sort((a, b) => (b.agedUnits || 0) - (a.agedUnits || 0))
+      .map((p, i) => ({
+        slot: ihImgSlot(p, 'a' + i), ph: ' ', imageUrl: p.imageUrl || '',
+        hasName: !!p.name, name: p.name || '', asin: p.childAsin,
+        stockV: ihStockV(p),
+        qtyV: p.agedUnits.toLocaleString('en-GB') + ' units aged',
+        dateV: p.agedBucketLabel || ''
+      }));
+    const IH_OPP_LIMIT = 6;
+    const ihOpportunities = [...ihRestockOpps.map(o => ({ ...o, kind: 'Amazon restock recommendation', kindCol: OPP_COL })),
+      ...ihAgedOpps.map(o => ({ ...o, kind: 'Aged inventory', kindCol: WARN_COL }))].slice(0, IH_OPP_LIMIT);
+    const ihOpportunitiesMoreCount = (ihRestockOpps.length + ihAgedOpps.length) - ihOpportunities.length;
+    const ihOpportunitiesMoreText = ihOpportunitiesMoreCount > 0
+      ? ('+' + ihOpportunitiesMoreCount + ' more opportunity' + (ihOpportunitiesMoreCount === 1 ? '' : 'ies'))
+      : '';
+    const hasIhOpportunities = ihOpportunities.length > 0;
+    const noIhOpportunities = !hasIhOpportunities;
+    const ihRemovalNote = hasIH
+      ? (ihCoverage.amazonRecommendedRemoval.flagged > 0
+          ? (ihCoverage.amazonRecommendedRemoval.flagged + ' product' + (ihCoverage.amazonRecommendedRemoval.flagged === 1 ? '' : 's') + ' with an Amazon recommended removal')
+          : 'No Amazon recommended removals for this account currently.')
+      : '';
+    const ihOpportunitiesEmptyText = ihLoading ? 'Loading inventory health…' : (ihError ? 'Inventory health unavailable for this period' : 'No inventory opportunities for this period.');
+
+    // ---- Orders: real order-level data for the selected month (one row per order), served from the
+    // permanently-archived Order Line Items data. Month-specific; changes with the date selector.
+    const ordersData = this.state.realOrders;
+    const ordersLoadingNow = this.state.ordersLoading || sellersLoading;
+    const MONS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const fmtOrderDate = (iso) => { if (!iso || iso.length < 10) return iso || ''; const p = iso.split('-'); return p[2] + ' ' + (MONS[(+p[1]) - 1] || ''); };
+    const statusColor = (s) => s === 'Shipped' ? '#0E7C4A' : (s === 'Pending' ? '#B4820A' : (s === 'Cancelled' || s === 'Canceled' ? '#C0342A' : '#5B6373'));
+    // Full authoritative detail from the existing Order Line Items dataset (one row per order):
+    // date, order id, product, child ASIN, line-item count, units, value, status. No new fields are
+    // invented — channel ("Amazon") and currency ("GBP") are constant for this account so they are
+    // not shown as columns. Genuine Canceled orders (units 0 / £0) are preserved, never dropped.
+    const ordersList = (ordersData && Array.isArray(ordersData.orders) ? ordersData.orders : []).map(o => ({
+      date: fmtOrderDate(o.date),
+      orderId: o.orderId || '',
+      product: o.firstProduct || o.firstAsin || o.orderId,
+      asin: o.firstAsin || '',
+      items: (o.itemCount || 1),
+      units: (o.units || 0).toLocaleString('en-GB'),
+      value: money(o.value),
+      status: o.status || '',
+      statusCol: statusColor(o.status),
+    }));
+    const hasOrders = !ordersLoadingNow && !this.state.ordersError && !!ordersData && ordersList.length > 0;
+    const ordersCountLabel = ordersLoadingNow ? 'Loading…'
+      : (this.state.ordersError ? 'Unavailable'
+        : (ordersData ? (ordersData.count.toLocaleString('en-GB') + (ordersData.count === 1 ? ' order' : ' orders')) : '—'));
+    const ordersTotalsLabel = (ordersData && ordersData.count > 0)
+      ? (money(ordersData.totalValue) + ' · ' + (ordersData.totalUnits || 0).toLocaleString('en-GB') + ' units')
+      : '';
+    const ordersEmptyText = ordersLoadingNow ? 'Loading orders…'
+      : (this.state.ordersError ? 'Orders unavailable for this period'
+        : 'No orders in this period');
+
+    return {
+      ordersList, hasOrders, noOrders: !hasOrders, ordersCountLabel, ordersTotalsLabel, ordersEmptyText,
+      ranges, kpis, costBars, waterfall, waterfallReady: hasPositiveGross, waterfallUnavailable: !hasPositiveGross, bkViews, costRows, products, ppc, campaigns, campaignCountLabel, inv,
+      ihKpis, ihHighPriority, hasIhHighPriority, noIhHighPriority, ihHighPriorityMoreText, ihHighPriorityEmptyText,
+      ihOpportunities, hasIhOpportunities, noIhOpportunities, ihOpportunitiesMoreText, ihRemovalNote, ihOpportunitiesEmptyText,
+      listings, listingIssues, hasListingIssues,
+      apiOn: api, bkOn: bk,
+      sellerStatusLabel, sellerBadgeTitle, sellerDotColor, sellerBadgeBg, sellerBadgeBorder, sellerBadgeTextCol,
+      sellerOptions, sellersMultiple, selectedSellerId: this.state.selectedSellerId, onSellerChange,
+      hasProducts, productsStatusMessage, productsStatusColor, productsCountLabel, liveProductsSummaryLabel,
+      listingsStatusMessage, listingsPartial, listingsCoverageNote, listingsSummaryLabel, listingsStatusBadge, productListingsCombinedSummary,
+      secKpis: sec('kpis','Headline metrics'), secTrend: sec('trend','Sales & revenue'), secMoney: sec('money','Where the money went'), secBk: sec('bk','Breakdown mode'),
+      secPpc: sec('ppc','PPC'), secInv: sec('inv','Inventory'), secOrders: sec('orders','Orders'), secLst: sec('lst','Product listings'), secCogs: sec('costs','Cost inputs'),
+      allLabel: anyOpen ? 'Collapse all' : 'Expand all',
+      toggleAll: () => { const v = !anyOpen; const o = {}; KEYS.forEach(k => o[k] = v); this.setState({ open: o }); },
+      toggleBreak: () => this.setState({ bk: !bk }),
+      toggleApi: () => this.setState(st => ({ api: !st.api })),
+      bkBg: bk ? '#EEF0FE' : '#fff', bkBorder: bk ? '#C6CDFA' : '#E3E6EC', bkCol: bk ? '#2A35A8' : '#5B6373',
+      bkTrackBg: bk ? ac : '#C9CFDA', bkKnob: bk ? '13px' : '2px',
+      apiBg: api ? '#EEF0FE' : '#fff', apiBorder: api ? '#C6CDFA' : '#E3E6EC', apiCol: api ? '#2A35A8' : '#6B7280',
+      costInputs,
+      ciUnits: hasRealSales ? Math.round(totalRealUnits).toLocaleString('en-GB') : '—',
+      ciCogs: money(cogsTotal), ciFreight: money(freightTotal),
+      ciLanded: totalRealUnits > 0 ? (p2(landedAvg) + ' avg') : '—',
+      ciCoverage: totalRealUnits > 0 ? Math.round(enteredUnits / totalRealUnits * 100) + '%' : '—',
+      ciReset: () => this.setState({ costs: {} }),
+      dirtyLabel: dirty ? ('Costs entered · ' + money(cogsTotal + freightTotal) + ' total') : 'No costs entered yet',
+      dirtyCol: dirty ? '#2A35A8' : '#8A919F', dirtyBg: dirty ? '#EEF0FE' : '#F1F3F7', dirtyBorder: dirty ? '#C6CDFA' : '#E3E6EC',
+      jump: [
+        { label: 'Sales & revenue', href: '#sales' },
+        { label: 'Cost breakdown', href: '#breakdown' },
+        { label: 'Orders', href: '#orders' },
+        { label: 'Listings', href: '#listings' },
+        { label: 'Inventory', href: '#inventory' },
+        { label: 'PPC', href: '#ppc' },
+        { label: 'Cost inputs', href: '#costs' }
+      ],
+      periodLabel: this.state.range === 'MTD' ? 'Month to date'
+        : this.state.range === 'Today' ? 'Today'
+        : this.state.range === 'Custom' ? ((this.state.customFrom && this.state.customTo) ? (this.state.customFrom + ' → ' + this.state.customTo) : 'Custom range')
+        : 'Last ' + this.state.range,
+      // Custom range + calendar boundary bindings
+      customLabel, calBg, calCol, calSh, customActive,
+      calendarOpen: this.state.calendarOpen,
+      toggleCalendar,
+      histMin, histMax,
+      customFrom: this.state.draftFrom || '',
+      customTo: this.state.draftTo || '',
+      onCustomFrom, onCustomTo, applyCustom,
+      customError: this.state.customError || '',
+      hasCustomError: !!this.state.customError,
+      availHistoryText: histMin + ' → ' + histMax,
+      localCoverageText,
+      showSyncBanner, syncBannerText,
+      showPartialBanner, partialCoverageText,
+      lastSyncedText,
+      dataSourceStatus,
+      syncStamp, syncStampColor,
+      syncLabel: this.state.syncing ? 'Syncing…' : 'Sync data',
+      syncData: () => this.__syncData(),
+      syncBg: this.state.syncing ? '#F1F3F7' : '#fff',
+      syncCol: this.state.syncing ? '#8A919F' : '#2A35A8',
+      syncBorder: this.state.syncing ? '#E3E6EC' : '#C6CDFA',
+      syncNote: 'Cache-first · Sync fetches fresh data · sales & ads hourly, inventory every 30 min',
+      netProfit: realNetProfitVal === null ? '—' : (realNetProfitVal >= 0 ? money(realNetProfitVal) : neg(-realNetProfitVal)),
+      netProfitCol: realNetProfitVal === null ? '#8A919F' : (realNetProfitVal >= 0 ? '#0E7C4A' : '#C0342A'),
+      netMargin: realNetMarginVal === null ? '—' : realNetMarginVal.toFixed(1) + '%',
+      pnlRows, pnlAvailable, pnlNote,
+      listingHealth: listingHealthPct,
+      trendStats: [
+        { label: 'Avg order value', value: (hasRealSales && salesDerived.avgOrderValue !== null) ? p2(salesDerived.avgOrderValue) : '—' },
+        { label: 'Units / day', value: (hasRealSales && salesDerived.unitsPerDay !== null) ? (Math.round(salesDerived.unitsPerDay * 10) / 10).toLocaleString('en-GB') : '—' },
+        { label: 'Sessions', value: hasRealSales ? salesTotals.sessions.toLocaleString('en-GB') : '—' },
+        { label: 'Unit session %', value: (hasRealSales && salesDerived.unitSessionPercentage !== null) ? salesDerived.unitSessionPercentage.toFixed(1) + '%' : '—' }
+      ],
+      x0: trendX0, x1: trendX1, x2: trendX2, x3: trendX3,
+      trendAreaPath, trendGrossPath, trendRevPath, trendAdPath
+    };
+  }
+}
+
+</script>
+</body>
+</html>

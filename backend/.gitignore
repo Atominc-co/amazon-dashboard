@@ -1,0 +1,9 @@
+.env
+node_modules/
+dist/
+build/
+logs/
+*.log
+npm-debug.log*
+# Persistent DataDoe raw-response cache (regenerated on demand; may contain account data)
+.cache/
